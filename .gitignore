@@ -15,3 +15,4 @@
 .idea
 .kotlin
 local.properties
+/gradle/wrapper/gradle-wrapper.properties

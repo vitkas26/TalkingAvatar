@@ -29,13 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.airbnb.lottie.compose.LottieAnimation
-import com.airbnb.lottie.compose.LottieClipSpec
-import com.airbnb.lottie.compose.LottieCompositionSpec
-import com.airbnb.lottie.compose.LottieConstants
-import com.airbnb.lottie.compose.animateLottieCompositionAsState
-import com.airbnb.lottie.compose.rememberLottieComposition
 import kg.nurtelecom.o.talkingavatar.R
+import kg.nurtelecom.o.talkingavatar.ui.avatar.AvatarSceneView
 import kg.nurtelecom.o.talkingavatar.ui.utils.AudioPlayer
 import kg.nurtelecom.o.talkingavatar.ui.utils.PulseIndicator
 import kotlinx.coroutines.launch
@@ -108,14 +103,6 @@ fun MainScreen() {
         }
     }
 
-    val composition by rememberLottieComposition(LottieCompositionSpec.Asset("talking_man.json"))
-    val progress by animateLottieCompositionAsState(
-        composition,
-        iterations = LottieConstants.IterateForever,
-        clipSpec = LottieClipSpec.Progress(0.3f, 0.6f),
-        isPlaying = state.isSpeaking
-    )
-
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -127,18 +114,15 @@ fun MainScreen() {
                     .sizeIn(minHeight = 300.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                AvatarSceneView(
+                    modifier = Modifier
+                        .height(400.dp)
+                        .fillMaxWidth()
+                )
                 if (state.isPreparing) {
                     PulseIndicator(
                         modifier = Modifier.padding(vertical = 36.dp),
                         icon = R.drawable.ic_thinking
-                    )
-                } else {
-                    LottieAnimation(
-                        composition = composition,
-                        progress = { if (state.isSpeaking) progress else 0f },
-                        modifier = Modifier
-                            .height(300.dp)
-                            .padding(start = 72.dp)
                     )
                 }
             }

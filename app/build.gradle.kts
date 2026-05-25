@@ -35,6 +35,16 @@ android {
         compose = true
         buildConfig = true
     }
+    packaging {
+        jniLibs {
+            pickFirsts += listOf(
+                "lib/x86/libfilament-jni.so",
+                "lib/x86_64/libfilament-jni.so",
+                "lib/armeabi-v7a/libfilament-jni.so",
+                "lib/arm64-v8a/libfilament-jni.so"
+            )
+        }
+    }
 }
 
 dependencies {
@@ -66,7 +76,7 @@ dependencies {
     implementation(libs.converter.gson)
     implementation(libs.okhttp)
 
-    implementation(libs.lottie.compose)
+    implementation(libs.sceneview)
 
     implementation(libs.kotlinx.coroutines.android)
 

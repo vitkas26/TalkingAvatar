@@ -157,8 +157,10 @@ class AudioPlayer(private val context: Context) {
     fun stop() {
         timelineJob?.cancel()
         mediaPlayer?.let {
-            if (it.isPlaying) it.stop()
-            it.release()
+            try {
+                if (it.isPlaying) it.stop()
+                it.release()
+            } catch (_: Exception) {}
         }
         mediaPlayer = null
         tts?.stop()

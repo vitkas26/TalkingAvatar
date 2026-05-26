@@ -1,6 +1,5 @@
 package kg.nurtelecom.o.talkingavatar.ui.avatar
 
-import android.util.Log
 import com.google.android.filament.Engine
 import com.google.android.filament.gltfio.FilamentAsset
 import io.github.sceneview.model.ModelInstance
@@ -31,23 +30,10 @@ class AvatarRendererImpl(
             if (morphCount == 0) return@forEach
 
             val names = asset.getMorphTargetNames(entity)
-            Log.d("AvatarRenderer", "Entity $entity: GPU morphCount=$morphCount, GLTF nameCount=${names.size}")
-
             names.forEachIndexed { index, name ->
-                // Применяем только если индекс входит в реальный GPU-буфер
                 if (index < morphCount) {
                     morphTargetMap.getOrPut(name) { mutableListOf() }.add(entity to index)
                 }
-            }
-        }
-
-        Log.d("AvatarRenderer", "Cached ${morphTargetMap.size} morph targets: ${morphTargetMap.keys.sorted()}")
-        Log.d("AvatarRenderer", "jawOpen → ${morphTargetMap["jawOpen"]}")
-        Log.d("AvatarRenderer", "viseme_aa → ${morphTargetMap["viseme_aa"]}")
-        Log.d("AvatarRenderer", "eyeBlinkLeft → ${morphTargetMap["eyeBlinkLeft"]}")
-        Viseme.entries.forEach { v ->
-            if (!morphTargetMap.containsKey(v.morphTargetName)) {
-                Log.w("AvatarRenderer", "Missing viseme: ${v.morphTargetName}")
             }
         }
     }

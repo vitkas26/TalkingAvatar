@@ -23,13 +23,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kg.nurtelecom.o.talkingavatar.R
+import kg.nurtelecom.o.talkingavatar.ui.avatar.AvatarRenderer
 import kg.nurtelecom.o.talkingavatar.ui.avatar.AvatarSceneView
 import kg.nurtelecom.o.talkingavatar.ui.utils.AudioPlayer
 import kg.nurtelecom.o.talkingavatar.ui.utils.PulseIndicator
@@ -48,6 +51,7 @@ fun MainScreen() {
 
     val audioPlayer = remember { AudioPlayer(context) }
     val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
+    var avatarRenderer by remember { mutableStateOf<AvatarRenderer?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -91,7 +95,8 @@ fun MainScreen() {
                     onError = {
                         viewModel.onSpeakingFinished()
                         scope.launch { snackBarHostState.showSnackbar("Ошибка TTS: ${it.message}") }
-                    }
+                    },
+                    onAmplitude = { amp -> avatarRenderer?.setLipSyncAmplitude(amp) }
                 )
             }
 
@@ -99,7 +104,10 @@ fun MainScreen() {
                 scope.launch { snackBarHostState.showSnackbar(sideEffect.message) }
             }
 
-            MainSideEffect.StopSpeaking -> audioPlayer.stop()
+            MainSideEffect.StopSpeaking -> {
+                audioPlayer.stop()
+                avatarRenderer?.setIdle()
+            }
         }
     }
 
@@ -117,7 +125,8 @@ fun MainScreen() {
                 AvatarSceneView(
                     modifier = Modifier
                         .height(400.dp)
-                        .fillMaxWidth()
+                        .fillMaxWidth(),
+                    onRendererReady = { avatarRenderer = it }
                 )
                 if (state.isPreparing) {
                     PulseIndicator(

@@ -57,8 +57,17 @@ class AvatarRendererImpl(
         }
     }
 
+    override fun setLipSyncAmplitude(amplitude: Float) {
+        setMorphWeight(Viseme.AA.morphTargetName, amplitude)
+        setMorphWeight(FacialBlendShape.JAW_OPEN, amplitude * 0.7f)
+        setMorphWeight(FacialBlendShape.MOUTH_OPEN, amplitude * 0.5f)
+        setMorphWeight(FacialBlendShape.MOUTH_SHRUG_LOWER, amplitude * 0.3f)
+    }
+
     override fun setIdle() {
         Viseme.entries.forEach { setMorphWeight(it.morphTargetName, 0f) }
         setMorphWeight(FacialBlendShape.JAW_OPEN, 0f)
+        setMorphWeight(FacialBlendShape.MOUTH_OPEN, 0f)
+        setMorphWeight(FacialBlendShape.MOUTH_SHRUG_LOWER, 0f)
     }
 }

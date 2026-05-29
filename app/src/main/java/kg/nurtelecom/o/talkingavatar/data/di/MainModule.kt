@@ -1,32 +1,40 @@
 package kg.nurtelecom.o.talkingavatar.data.di
 
-import kg.nurtelecom.o.talkingavatar.data.api.ApiService
+import kg.nurtelecom.o.talkingavatar.data.api.AnthropicService
 import kg.nurtelecom.o.talkingavatar.ui.mainScreen.MainViewModel
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
+const val CLAUDE_API_KEY = "REDACTED_API_KEY"
 
 val mainModule = module {
     singleOf(::MainViewModel)
-    single { provideApiService() }
-
+    single { provideAnthropicService() }
 }
 
-private fun provideApiService(): ApiService {
-
-    val okHttpClient = OkHttpClient.Builder()
+private fun provideAnthropicService(): AnthropicService {
+    val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(2, TimeUnit.MINUTES)
-        .callTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .addInterceptor { chain ->
+            val request: Request = chain.request().newBuilder()
+                .header("x-api-key", CLAUDE_API_KEY)
+                .header("anthropic-version", "2023-06-01")
+                .build()
+            chain.proceed(request)
+        }
+        .build()
 
     return Retrofit.Builder()
-        .client(okHttpClient.build())
+        .client(client)
+        .baseUrl("https://api.anthropic.com/")
         .addConverterFactory(GsonConverterFactory.create())
-        .baseUrl("https://your-backend-url.com/").build()
-        .create(ApiService::class.java)
+        .build()
+        .create(AnthropicService::class.java)
 }

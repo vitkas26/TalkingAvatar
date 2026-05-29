@@ -5,4 +5,5 @@ interface AvatarRenderer {
     fun applyVisemeFrame(frame: VisemeFrame)
     fun setLipSyncAmplitude(amplitude: Float)
     fun setIdle()
+    suspend fun playEarListenGesture()
 }

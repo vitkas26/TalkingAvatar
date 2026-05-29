@@ -10,8 +10,8 @@ class AudioLipSyncEngine {
         var sumSq = 0.0
         for (s in pcm) sumSq += s.toDouble() * s
         val rms = sqrt(sumSq / pcm.size).toFloat()
-        val normalized = (rms / Short.MAX_VALUE.toFloat() * 5f).coerceIn(0f, 1f)
-        val alpha = if (normalized > smoothed) 0.5f else 0.12f
+        val normalized = (rms / Short.MAX_VALUE.toFloat() * 3f).coerceIn(0f, 1f)
+        val alpha = if (normalized > smoothed) 0.6f else 0.3f
         smoothed = alpha * normalized + (1f - alpha) * smoothed
         return smoothed
     }

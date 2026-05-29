@@ -2,23 +2,21 @@ package kg.nurtelecom.o.talkingavatar.ui.mainScreen
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -31,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import kg.nurtelecom.o.talkingavatar.R
 import kg.nurtelecom.o.talkingavatar.ui.avatar.AvatarRenderer
 import kg.nurtelecom.o.talkingavatar.ui.avatar.AvatarSceneView
@@ -40,6 +39,13 @@ import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.orbitmvi.orbit.compose.collectAsState
 import org.orbitmvi.orbit.compose.collectSideEffect
+
+private val STOP_COMMANDS = setOf("стоп", "stop", "ок", "ok", "хватит", "тихо", "замолчи")
+
+private fun isStopCommand(text: String): Boolean {
+    val lower = text.lowercase().trim()
+    return STOP_COMMANDS.any { lower == it || lower.contains(it) }
+}
 
 @Composable
 fun MainScreen() {
@@ -53,41 +59,76 @@ fun MainScreen() {
     val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
     var avatarRenderer by remember { mutableStateOf<AvatarRenderer?>(null) }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            if (state.isSpeaking)
-                viewModel.stopAndRestart()
-            else
-                viewModel.startListening()
-        } else scope.launch { snackBarHostState.showSnackbar("Требуется разрешение на микрофон") }
-    }
+    // Mutable ref so the RecognitionListener (created once) always sees the latest value
+    val isSpeakingRef = remember { mutableStateOf(false) }
+    LaunchedEffect(state.isSpeaking) { isSpeakingRef.value = state.isSpeaking }
 
-    val speechLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            val data = result.data
-            val results = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-            results?.firstOrNull()?.let { viewModel.onSpeechResult(it) }
+    val recognitionIntent = remember {
+        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         }
     }
 
-    LaunchedEffect(Unit) { audioPlayer.initialize() }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) viewModel.startListening()
+        else scope.launch { snackBarHostState.showSnackbar("Требуется разрешение на микрофон") }
+    }
+
+    DisposableEffect(Unit) {
+        speechRecognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) = Unit
+            override fun onBeginningOfSpeech() = Unit
+            override fun onRmsChanged(rmsdB: Float) = Unit
+            override fun onBufferReceived(buffer: ByteArray?) = Unit
+            override fun onEndOfSpeech() = Unit
+            override fun onPartialResults(partialResults: Bundle?) = Unit
+            override fun onEvent(eventType: Int, params: Bundle?) = Unit
+
+            override fun onResults(results: Bundle) {
+                val text = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()
+                when {
+                    text.isNullOrBlank() -> viewModel.startListening()
+                    isSpeakingRef.value && isStopCommand(text) -> viewModel.stopAndRestart()
+                    isSpeakingRef.value -> speechRecognizer.startListening(recognitionIntent) // TTS noise — ignore
+                    else -> viewModel.onSpeechResult(text)
+                }
+            }
+
+            override fun onError(error: Int) {
+                Handler(Looper.getMainLooper()).postDelayed({
+                    viewModel.startListening()
+                }, 300L)
+            }
+        })
+        onDispose {
+            audioPlayer.release()
+            speechRecognizer.destroy()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        audioPlayer.initialize()
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) viewModel.startListening()
+        else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
 
     viewModel.collectSideEffect { sideEffect ->
         when (sideEffect) {
             is MainSideEffect.StartSpeechRecognition -> {
-                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, sideEffect.language)
-                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-                }
-                speechLauncher.launch(intent)
+                speechRecognizer.cancel()
+                speechRecognizer.startListening(recognitionIntent)
             }
 
             is MainSideEffect.SpeakAnswer -> {
+                // Keep mic on during TTS so user can say "стоп"
                 audioPlayer.play(
                     text = sideEffect.text,
                     onStart = { viewModel.onSpeakingStarted() },
@@ -108,61 +149,31 @@ fun MainScreen() {
                 audioPlayer.stop()
                 avatarRenderer?.setIdle()
             }
+
+            MainSideEffect.TriggerEarListen -> {
+                scope.launch { avatarRenderer?.playEarListenGesture() }
+            }
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Column(
+    Box(modifier = Modifier.fillMaxSize()) {
+        AvatarSceneView(
+            modifier = Modifier.fillMaxSize(),
+            onRendererReady = { avatarRenderer = it }
+        )
+
+        if (state.isPreparing) {
+            PulseIndicator(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .sizeIn(minHeight = 300.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                AvatarSceneView(
-                    modifier = Modifier
-                        .height(400.dp)
-                        .fillMaxWidth(),
-                    onRendererReady = { avatarRenderer = it }
-                )
-                if (state.isPreparing) {
-                    PulseIndicator(
-                        modifier = Modifier.padding(vertical = 36.dp),
-                        icon = R.drawable.ic_thinking
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = {
-                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            },
-                enabled = !state.isPreparing && !state.isSpeaking) {
-                Text("Задать вопрос")
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = {
-                    audioPlayer.stop()
-                    viewModel.onSpeakingFinished()
-                },
-                enabled = state.isSpeaking
-            ) {
-                Text("Стоп")
-            }
-
-            SnackbarHost(hostState = snackBarHostState)
+                    .align(Alignment.Center)
+                    .padding(bottom = 120.dp),
+                icon = R.drawable.ic_thinking
+            )
         }
-    }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            audioPlayer.stop()
-            speechRecognizer.destroy()
-        }
+        SnackbarHost(
+            hostState = snackBarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }

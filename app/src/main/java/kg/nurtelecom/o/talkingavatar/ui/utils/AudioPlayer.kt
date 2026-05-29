@@ -25,20 +25,21 @@ class AudioPlayer(private val context: Context) {
     private val lipSyncEngine = AudioLipSyncEngine()
 
     fun initialize() {
-        if (tts == null) {
-            tts = TextToSpeech(context) { status ->
-                if (status == TextToSpeech.SUCCESS) {
-                    tts?.language = Locale("ru", "RU")
-                    val voice = tts?.voices?.find {
-                        it.locale.language == "ru" &&
-                                (it.name.contains("ruc", true)
-                                        || it.name.contains("male", true)
-                                        || it.name.contains("rud", true))
-                    }
-                    tts?.voice = voice
-                }
+        if (tts != null) return
+        tts = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                tts?.language = Locale("ru", "RU")
+                applyFemaleVoice()
             }
         }
+    }
+
+    private fun applyFemaleVoice() {
+        val ruVoices = tts?.voices?.filter { it.locale.language == "ru" } ?: return
+        val voice = ruVoices.find { it.name == "ru-ru-x-ruf-network" }
+            ?: ruVoices.find { it.name == "ru-ru-x-ruf-local" }
+            ?: ruVoices.find { it.name.contains("ruf") }
+        if (voice != null) tts?.voice = voice
     }
 
     fun play(
@@ -54,21 +55,16 @@ class AudioPlayer(private val context: Context) {
         try {
             tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {}
-
                 override fun onDone(utteranceId: String?) {
                     val timeline = if (onAmplitude != null) computeAmplitudeTimeline(audioFile) else null
                     playAudioFile(audioFile, timeline, onStart, onFinish, onError, onAmplitude)
                 }
-
                 override fun onError(utteranceId: String?) {
-                    onError(Exception("TTS ошибка преобразования текста"))
+                    onError(Exception("TTS ошибка синтеза"))
                 }
             })
-
             val result = tts?.synthesizeToFile(text, null, audioFile, utteranceId)
-            if (result == TextToSpeech.ERROR) {
-                onError(Exception("Ошибка преобразования текста в файл"))
-            }
+            if (result == TextToSpeech.ERROR) onError(Exception("Ошибка TTS synthesizeToFile"))
         } catch (e: Exception) {
             onError(e)
         }
@@ -81,7 +77,7 @@ class AudioPlayer(private val context: Context) {
         lipSyncEngine.reset()
         try {
             FileInputStream(file).use { fis ->
-                fis.skip(44) // standard PCM WAV header
+                fis.skip(44)
                 val byteBuffer = ByteArray(samplesPerChunk * 2)
                 val shortBuffer = ShortArray(samplesPerChunk)
                 while (true) {
@@ -122,6 +118,8 @@ class AudioPlayer(private val context: Context) {
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(file.absolutePath)
                 prepare()
+                // Pitch-shift up to make voice sound more feminine (1.0 = normal, 2.0 = one octave up)
+                playbackParams = android.media.PlaybackParams().setPitch(1.4f)
                 start()
                 onStart()
 
@@ -144,7 +142,7 @@ class AudioPlayer(private val context: Context) {
                 }
                 setOnErrorListener { _, what, extra ->
                     timelineJob?.cancel()
-                    onError(Exception("MediaPlayer ошибка $what подробности = $extra"))
+                    onError(Exception("MediaPlayer error $what/$extra"))
                     release()
                     true
                 }
@@ -157,10 +155,7 @@ class AudioPlayer(private val context: Context) {
     fun stop() {
         timelineJob?.cancel()
         mediaPlayer?.let {
-            try {
-                if (it.isPlaying) it.stop()
-                it.release()
-            } catch (_: Exception) {}
+            try { if (it.isPlaying) it.stop(); it.release() } catch (_: Exception) {}
         }
         mediaPlayer = null
         tts?.stop()

@@ -1,10 +1,15 @@
 package kg.nurtelecom.o.talkingavatar.ui.avatar
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.sceneview.SceneView
@@ -22,16 +27,29 @@ fun AvatarSceneView(
     onRendererReady: ((AvatarRenderer) -> Unit)? = null
 ) {
     val context = LocalContext.current
-    val sceneView = remember { SceneView(context) }
+    val sceneView = remember {
+        SceneView(context, isOpaque = false).apply { skybox = null }
+    }
 
     LaunchedEffect(Unit) {
-        val instance = sceneView.modelLoader.loadModelInstance("model.glb") ?: return@LaunchedEffect
-        val modelNode = ModelNode(modelInstance = instance, autoAnimate = false, scaleToUnits = 2.2f).apply {
-            position = Position(x = 0f, y = -1.8f, z = 0f)
+        val instance = sceneView.modelLoader.loadModelInstance("model_di.glb") ?: return@LaunchedEffect
+        val renderer = AvatarRendererImpl(sceneView.engine, instance)
+
+        val modelNode = object : ModelNode(
+            modelInstance = instance, autoAnimate = true, scaleToUnits = 2.2f
+        ) {
+            override fun onFrame(frameTimeNanos: Long) {
+                super.onFrame(frameTimeNanos)
+                // Re-apply our morph overrides after animation sets its own weights
+                renderer.reapplyMorphOverrides()
+            }
+        }.apply {
+            position = Position(x = 0f, y = -2f, z = -4f)
         }
         sceneView.addChildNode(modelNode)
 
-        val renderer = AvatarRendererImpl(sceneView.engine, instance)
+        renderer.pauseAnimation = { modelNode.setAnimationSpeed(0, 0f) }
+        renderer.resumeAnimation = { modelNode.setAnimationSpeed(0, 1f) }
         onRendererReady?.invoke(renderer)
 
         // Blink: random every 2.5–4.5 sec
@@ -105,8 +123,20 @@ fun AvatarSceneView(
         onDispose { sceneView.destroy() }
     }
 
-    AndroidView(
-        factory = { sceneView },
-        modifier = modifier
-    )
+    Box(
+        modifier = modifier.background(
+            Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFF13111C),
+                    Color(0xFF1D1A2F),
+                    Color(0xFF0F3460),
+                )
+            )
+        )
+    ) {
+        AndroidView(
+            factory = { sceneView },
+            modifier = Modifier.fillMaxSize()
+        )
+    }
 }

@@ -43,7 +43,7 @@ fun AvatarSceneView(
                 renderer.reapplyMorphOverrides()
             }
         }.apply {
-            position = Position(x = 0f, y = -2f, z = -4f)
+            position = Position(x = 0f, y = -1.5f, z = -3f)
         }
         sceneView.addChildNode(modelNode)
 

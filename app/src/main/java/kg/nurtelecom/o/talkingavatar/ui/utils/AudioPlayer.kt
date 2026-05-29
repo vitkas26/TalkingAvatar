@@ -36,10 +36,13 @@ class AudioPlayer(private val context: Context) {
 
     private fun applyFemaleVoice() {
         val ruVoices = tts?.voices?.filter { it.locale.language == "ru" } ?: return
-        val voice = ruVoices.find { it.name == "ru-ru-x-ruf-network" }
-            ?: ruVoices.find { it.name == "ru-ru-x-ruf-local" }
-            ?: ruVoices.find { it.name.contains("ruf") }
-        if (voice != null) tts?.voice = voice
+        val voice = ruVoices.find { it.name == "ru-ru-x-rue-local" }
+            ?: ruVoices.find { it.name == "ru-ru-x-rue-network" }
+            ?: ruVoices.find { it.name.contains("rue") }
+            ?: ruVoices.maxByOrNull { it.quality }
+        tts?.voice = voice
+        tts?.setPitch(1.05f)
+        tts?.setSpeechRate(0.92f)
     }
 
     fun play(
@@ -118,7 +121,6 @@ class AudioPlayer(private val context: Context) {
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(file.absolutePath)
                 prepare()
-                playbackParams = android.media.PlaybackParams().setPitch(1.4f)
                 start()
                 onStart()
 

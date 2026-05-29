@@ -62,11 +62,21 @@ fun MainScreen() {
     val isSpeakingRef = remember { mutableStateOf(false) }
     LaunchedEffect(state.isSpeaking) { isSpeakingRef.value = state.isSpeaking }
 
+    val isPreparingRef = remember { mutableStateOf(false) }
+
     val recognitionIntent = remember {
         Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+    }
+
+    LaunchedEffect(state.isPreparing) {
+        isPreparingRef.value = state.isPreparing
+        if (state.isPreparing) {
+            speechRecognizer.cancel()
+            speechRecognizer.startListening(recognitionIntent)
         }
     }
 
@@ -90,17 +100,22 @@ fun MainScreen() {
             override fun onResults(results: Bundle) {
                 val text = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     ?.firstOrNull()
+                val busyWithAi = isSpeakingRef.value || isPreparingRef.value
                 when {
-                    text.isNullOrBlank() -> viewModel.startListening()
-                    isSpeakingRef.value && isStopCommand(text) -> viewModel.stopAndRestart()
-                    isSpeakingRef.value -> speechRecognizer.startListening(recognitionIntent)
+                    text.isNullOrBlank() -> {
+                        if (isPreparingRef.value) speechRecognizer.startListening(recognitionIntent)
+                        else viewModel.startListening()
+                    }
+                    busyWithAi && isStopCommand(text) -> viewModel.stopAndRestart()
+                    busyWithAi -> speechRecognizer.startListening(recognitionIntent)
                     else -> viewModel.onSpeechResult(text)
                 }
             }
 
             override fun onError(error: Int) {
                 Handler(Looper.getMainLooper()).postDelayed({
-                    viewModel.startListening()
+                    if (isPreparingRef.value) speechRecognizer.startListening(recognitionIntent)
+                    else viewModel.startListening()
                 }, 300L)
             }
         })

@@ -3,6 +3,7 @@ package kg.nurtelecom.o.talkingavatar.ui.mainScreen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kg.nurtelecom.o.talkingavatar.domain.usecase.AskQuestionUseCase
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import org.orbitmvi.orbit.Container
 import org.orbitmvi.orbit.ContainerHost
@@ -31,8 +32,13 @@ class MainViewModel(private val askQuestion: AskQuestionUseCase) : ViewModel(),
 
     override val container: Container<MainState, MainSideEffect> = viewModelScope.container(MainState())
 
-    fun stopAndRestart() {
-        onSpeakingFinished()
+    private var preparationJob: Job? = null
+
+    fun stopAndRestart() = intent {
+        preparationJob?.cancel()
+        reduce { state.copy(isSpeaking = false, isPreparing = false) }
+        postSideEffect(MainSideEffect.StopSpeaking)
+        startListening()
     }
 
     fun startListening() = intent {
@@ -41,32 +47,34 @@ class MainViewModel(private val askQuestion: AskQuestionUseCase) : ViewModel(),
         postSideEffect(MainSideEffect.StartSpeechRecognition())
     }
 
-    fun onSpeechResult(question: String) = intent {
-        reduce { state.copy(isListening = false, question = question, isPreparing = true) }
+    fun onSpeechResult(question: String) {
+        preparationJob = intent {
+            reduce { state.copy(isListening = false, question = question, isPreparing = true) }
 
-        if (EAR_LISTEN_KEYWORDS.any { question.lowercase().contains(it) }) {
-            postSideEffect(MainSideEffect.TriggerEarListen)
-        }
-
-        try {
-            val answer = askQuestion(question)
-            reduce { state.copy(answer = answer) }
-            postSideEffect(MainSideEffect.SpeakAnswer(answer))
-        } catch (e: HttpException) {
-            val msg = if (e.code() == 429) {
-                delay(3000L)
-                "Слишком много запросов, попробуй чуть позже"
-            } else {
-                "HTTP ${e.code()}: ${e.response()?.errorBody()?.string()}"
+            if (EAR_LISTEN_KEYWORDS.any { question.lowercase().contains(it) }) {
+                postSideEffect(MainSideEffect.TriggerEarListen)
             }
-            reduce { state.copy(error = msg, isPreparing = false) }
-            postSideEffect(MainSideEffect.ShowError(msg))
-            startListening()
-        } catch (e: Exception) {
-            val msg = e.message ?: "Ошибка сети"
-            reduce { state.copy(error = msg, isPreparing = false) }
-            postSideEffect(MainSideEffect.ShowError(msg))
-            startListening()
+
+            try {
+                val answer = askQuestion(question)
+                reduce { state.copy(answer = answer) }
+                postSideEffect(MainSideEffect.SpeakAnswer(answer))
+            } catch (e: HttpException) {
+                val msg = if (e.code() == 429) {
+                    delay(3000L)
+                    "Слишком много запросов, попробуй чуть позже"
+                } else {
+                    "HTTP ${e.code()}: ${e.response()?.errorBody()?.string()}"
+                }
+                reduce { state.copy(error = msg, isPreparing = false) }
+                postSideEffect(MainSideEffect.ShowError(msg))
+                startListening()
+            } catch (e: Exception) {
+                val msg = e.message ?: "Ошибка сети"
+                reduce { state.copy(error = msg, isPreparing = false) }
+                postSideEffect(MainSideEffect.ShowError(msg))
+                startListening()
+            }
         }
     }
 

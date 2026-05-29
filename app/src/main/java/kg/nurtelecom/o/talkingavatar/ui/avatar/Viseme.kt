@@ -1,7 +1,5 @@
 package kg.nurtelecom.o.talkingavatar.ui.avatar
 
-// Oculus Lipsync visemes mapped to Avaturn morph target names.
-// Avaturn uses I/O/U instead of Oculus standard ih/oh/ou — same phonemes, different naming.
 enum class Viseme(val morphTargetName: String, val oculusIndex: Int) {
     SIL("viseme_sil", 0),
     PP("viseme_PP", 1),

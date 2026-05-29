@@ -84,7 +84,7 @@ class AvatarRendererImpl(
 
     override suspend fun playEarListenGesture() {
         pauseAnimation?.invoke()
-        delay(32L) // let current frame complete so updateBoneMatrices flushes before we read
+        delay(32L)
         val tm = engine.transformManager
         val armTi = tm.getInstance(LEFT_ARM_ENTITY)
         val foreTi = tm.getInstance(LEFT_FORE_ARM_ENTITY)

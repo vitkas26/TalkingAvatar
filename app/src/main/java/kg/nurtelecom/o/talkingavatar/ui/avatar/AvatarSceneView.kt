@@ -40,7 +40,6 @@ fun AvatarSceneView(
         ) {
             override fun onFrame(frameTimeNanos: Long) {
                 super.onFrame(frameTimeNanos)
-                // Re-apply our morph overrides after animation sets its own weights
                 renderer.reapplyMorphOverrides()
             }
         }.apply {
@@ -52,7 +51,6 @@ fun AvatarSceneView(
         renderer.resumeAnimation = { modelNode.setAnimationSpeed(0, 1f) }
         onRendererReady?.invoke(renderer)
 
-        // Blink: random every 2.5–4.5 sec
         launch {
             while (true) {
                 delay(2500L + Random.nextLong(2000L))
@@ -71,21 +69,19 @@ fun AvatarSceneView(
             }
         }
 
-        // Head sway: three incommensurable sine waves so motion never repeats exactly
         launch {
             var t = 0f
             while (true) {
                 t += 0.05f
                 modelNode.rotation = Rotation(
-                    x = sin(t * 0.31f) * 1.0f,   // subtle nod  ±1°, ~20 s period
-                    y = sin(t * 0.53f) * 3.0f,   // look left/right ±3°, ~12 s period
-                    z = sin(t * 0.23f) * 1.5f    // head tilt ±1.5°, ~27 s period
+                    x = sin(t * 0.31f) * 1.0f,
+                    y = sin(t * 0.53f) * 3.0f,
+                    z = sin(t * 0.23f) * 1.5f
                 )
                 delay(50L)
             }
         }
 
-        // Eye gaze shifts: every 3–7 sec glance in a random direction
         val gazeNames = listOf(
             FacialBlendShape.EYE_LOOK_OUT_LEFT, FacialBlendShape.EYE_LOOK_IN_RIGHT,
             FacialBlendShape.EYE_LOOK_IN_LEFT,  FacialBlendShape.EYE_LOOK_OUT_RIGHT,
@@ -110,7 +106,6 @@ fun AvatarSceneView(
                         renderer.setMorphWeight(FacialBlendShape.EYE_LOOK_UP_LEFT, strength * 0.5f)
                         renderer.setMorphWeight(FacialBlendShape.EYE_LOOK_UP_RIGHT, strength * 0.5f)
                     }
-                    // 3, 4 → stay at center
                 }
 
                 delay(1000L + Random.nextLong(2000L))

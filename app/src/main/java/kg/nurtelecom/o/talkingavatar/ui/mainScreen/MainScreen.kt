@@ -59,7 +59,6 @@ fun MainScreen() {
     val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
     var avatarRenderer by remember { mutableStateOf<AvatarRenderer?>(null) }
 
-    // Mutable ref so the RecognitionListener (created once) always sees the latest value
     val isSpeakingRef = remember { mutableStateOf(false) }
     LaunchedEffect(state.isSpeaking) { isSpeakingRef.value = state.isSpeaking }
 
@@ -94,7 +93,7 @@ fun MainScreen() {
                 when {
                     text.isNullOrBlank() -> viewModel.startListening()
                     isSpeakingRef.value && isStopCommand(text) -> viewModel.stopAndRestart()
-                    isSpeakingRef.value -> speechRecognizer.startListening(recognitionIntent) // TTS noise — ignore
+                    isSpeakingRef.value -> speechRecognizer.startListening(recognitionIntent)
                     else -> viewModel.onSpeechResult(text)
                 }
             }
@@ -128,7 +127,6 @@ fun MainScreen() {
             }
 
             is MainSideEffect.SpeakAnswer -> {
-                // Keep mic on during TTS so user can say "стоп"
                 audioPlayer.play(
                     text = sideEffect.text,
                     onStart = { viewModel.onSpeakingStarted() },

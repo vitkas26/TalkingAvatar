@@ -1,11 +1,8 @@
 package kg.nurtelecom.o.talkingavatar.ui.mainScreen
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kg.nurtelecom.o.talkingavatar.data.api.AnthropicMessage
-import kg.nurtelecom.o.talkingavatar.data.api.AnthropicRequest
-import kg.nurtelecom.o.talkingavatar.data.api.AnthropicService
+import kg.nurtelecom.o.talkingavatar.domain.usecase.AskQuestionUseCase
 import kotlinx.coroutines.delay
 import org.orbitmvi.orbit.Container
 import org.orbitmvi.orbit.ContainerHost
@@ -29,10 +26,7 @@ sealed class MainSideEffect {
     data class ShowError(val message: String) : MainSideEffect()
 }
 
-private const val SYSTEM_PROMPT = """Ты — голосовой AI-ассистент. Отвечай коротко и по делу, 1–3 предложения максимум.
-Говори на том языке, на котором задан вопрос. Не используй markdown, списки или символы — только живую речь."""
-
-class MainViewModel(private val anthropicService: AnthropicService) : ViewModel(),
+class MainViewModel(private val askQuestion: AskQuestionUseCase) : ViewModel(),
     ContainerHost<MainState, MainSideEffect> {
 
     override val container: Container<MainState, MainSideEffect> = viewModelScope.container(MainState())
@@ -53,34 +47,27 @@ class MainViewModel(private val anthropicService: AnthropicService) : ViewModel(
         if (EAR_LISTEN_KEYWORDS.any { question.lowercase().contains(it) }) {
             postSideEffect(MainSideEffect.TriggerEarListen)
         }
-        val request = AnthropicRequest(
-                system = SYSTEM_PROMPT,
-                messages = listOf(AnthropicMessage(role = "user", content = question))
-            )
-            var lastError: Exception? = null
-                try {
-                    val response = anthropicService.sendMessage(request)
-                    val answer = response.text().ifBlank { "Не могу ответить на этот вопрос." }
-                    reduce { state.copy(answer = answer) }
-                    postSideEffect(MainSideEffect.SpeakAnswer(answer))
-                    return@intent
-                } catch (e: HttpException) {
-                    lastError = e
-                    if (e.code() == 429) delay(3000L)
-                } catch (e: Exception) {
-                    lastError = e
-                }
 
-            reduce { state.copy(error = lastError.message, isPreparing = false) }
-            val httpEx = lastError as? HttpException
-            val msg = when {
-                httpEx?.code() == 429 -> "Слишком много запросов, попробуй чуть позже"
-                httpEx != null -> "HTTP ${httpEx.code()}: ${httpEx.response()?.errorBody()?.string()}"
-                else -> lastError?.message ?: "Ошибка сети"
+        try {
+            val answer = askQuestion(question)
+            reduce { state.copy(answer = answer) }
+            postSideEffect(MainSideEffect.SpeakAnswer(answer))
+        } catch (e: HttpException) {
+            val msg = if (e.code() == 429) {
+                delay(3000L)
+                "Слишком много запросов, попробуй чуть позже"
+            } else {
+                "HTTP ${e.code()}: ${e.response()?.errorBody()?.string()}"
             }
-        Log.d("@@@", "onSpeechResult: $msg")
+            reduce { state.copy(error = msg, isPreparing = false) }
             postSideEffect(MainSideEffect.ShowError(msg))
             startListening()
+        } catch (e: Exception) {
+            val msg = e.message ?: "Ошибка сети"
+            reduce { state.copy(error = msg, isPreparing = false) }
+            postSideEffect(MainSideEffect.ShowError(msg))
+            startListening()
+        }
     }
 
     fun onSpeakingStarted() = intent {

@@ -118,7 +118,6 @@ class AudioPlayer(private val context: Context) {
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(file.absolutePath)
                 prepare()
-                // Pitch-shift up to make voice sound more feminine (1.0 = normal, 2.0 = one octave up)
                 playbackParams = android.media.PlaybackParams().setPitch(1.4f)
                 start()
                 onStart()

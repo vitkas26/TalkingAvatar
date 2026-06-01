@@ -19,12 +19,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun PulseIndicator(
     @DrawableRes icon: Int,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    color: Color = Color.Magenta,
+    size: Dp = 140.dp
 ) {
     val periodMs = 3600L
     val offsetsMs = longArrayOf(0L, 1200L, 2400L)
@@ -43,7 +46,11 @@ fun PulseIndicator(
         return ((elapsedMs % periodMs).toFloat() / periodMs.toFloat())
     }
 
-    Box(modifier.size(140.dp), contentAlignment = Alignment.Center) {
+    val innerSize = size * 0.57f
+    val iconSize = size * 0.23f
+    val borderWidth = size * 0.17f
+
+    Box(modifier.size(size), contentAlignment = Alignment.Center) {
         @Composable
         fun Ring(p: Float) = Box(
             Modifier
@@ -53,7 +60,7 @@ fun PulseIndicator(
                     scaleY = 1f + 0.8f * p
                     alpha = 1f - p
                 }
-                .border(24.dp, Color.Magenta.copy(alpha = 0.9f), CircleShape)
+                .border(borderWidth, color.copy(alpha = 0.9f), CircleShape)
         )
 
         Ring(phase(offsetsMs[0]))
@@ -62,14 +69,14 @@ fun PulseIndicator(
 
         Box(
             Modifier
-                .size(80.dp)
+                .size(innerSize)
                 .background(Color.White, CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Image(
                 painter = painterResource(icon),
                 contentDescription = null,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(iconSize)
             )
         }
     }

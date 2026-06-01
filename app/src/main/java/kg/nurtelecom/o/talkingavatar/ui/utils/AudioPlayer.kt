@@ -41,8 +41,8 @@ class AudioPlayer(private val context: Context) {
             ?: ruVoices.find { it.name.contains("rue") }
             ?: ruVoices.maxByOrNull { it.quality }
         tts?.voice = voice
-        tts?.setPitch(1.05f)
-        tts?.setSpeechRate(0.92f)
+        tts?.setPitch(1.15f)
+        tts?.setSpeechRate(1.25f)
     }
 
     fun play(

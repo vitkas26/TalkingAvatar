@@ -35,10 +35,24 @@ fun AvatarSceneView(
         val instance = sceneView.modelLoader.loadModelInstance("model_di.glb") ?: return@LaunchedEffect
         val renderer = AvatarRendererImpl(sceneView.engine, instance)
 
+        val glbAnimator = instance.animator
+        val animDuration = glbAnimator.getAnimationDuration(0)
+
         val modelNode = object : ModelNode(
-            modelInstance = instance, autoAnimate = true, scaleToUnits = 2.2f
+            modelInstance = instance, autoAnimate = false, scaleToUnits = 2.2f
         ) {
+            private var animTime = 0f
+            private var lastFrameNs = -1L
+
             override fun onFrame(frameTimeNanos: Long) {
+                if (lastFrameNs > 0) {
+                    val dt = (frameTimeNanos - lastFrameNs) / 1_000_000_000f
+                    animTime = (animTime + dt) % animDuration
+                    glbAnimator.applyAnimation(0, animTime)
+                    renderer.applyHeadOverride()
+                    glbAnimator.updateBoneMatrices()
+                }
+                lastFrameNs = frameTimeNanos
                 super.onFrame(frameTimeNanos)
                 renderer.reapplyMorphOverrides()
             }
@@ -46,25 +60,22 @@ fun AvatarSceneView(
             position = Position(x = 0f, y = -1.5f, z = -3f)
         }
         sceneView.addChildNode(modelNode)
-
-        renderer.pauseAnimation = { modelNode.setAnimationSpeed(0, 0f) }
-        renderer.resumeAnimation = { modelNode.setAnimationSpeed(0, 1f) }
         onRendererReady?.invoke(renderer)
 
         launch {
             while (true) {
-                delay(2500L + Random.nextLong(2000L))
+                delay(3000L + Random.nextLong(2000L))
                 for (i in 0..4) {
                     val w = i / 4f
                     renderer.setMorphWeight(FacialBlendShape.EYE_BLINK_LEFT, w)
                     renderer.setMorphWeight(FacialBlendShape.EYE_BLINK_RIGHT, w)
-                    delay(25L)
+                    delay(40L)
                 }
                 for (i in 4 downTo 0) {
                     val w = i / 4f
                     renderer.setMorphWeight(FacialBlendShape.EYE_BLINK_LEFT, w)
                     renderer.setMorphWeight(FacialBlendShape.EYE_BLINK_RIGHT, w)
-                    delay(25L)
+                    delay(40L)
                 }
             }
         }
@@ -72,13 +83,13 @@ fun AvatarSceneView(
         launch {
             var t = 0f
             while (true) {
-                t += 0.05f
+                t += 0.04f
                 modelNode.rotation = Rotation(
-                    x = sin(t * 0.31f) * 1.0f,
+                    x = sin(t * 0.31f) * 1.0f + renderer.leanDeg,
                     y = sin(t * 0.53f) * 3.0f,
                     z = sin(t * 0.23f) * 1.5f
                 )
-                delay(50L)
+                delay(80L)
             }
         }
 

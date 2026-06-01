@@ -23,7 +23,6 @@ sealed class MainSideEffect {
     data class StartSpeechRecognition(val language: String = "ru-RU") : MainSideEffect()
     data class SpeakAnswer(val text: String) : MainSideEffect()
     data object StopSpeaking : MainSideEffect()
-    data object TriggerEarListen : MainSideEffect()
     data class ShowError(val message: String) : MainSideEffect()
 }
 
@@ -50,10 +49,6 @@ class MainViewModel(private val askQuestion: AskQuestionUseCase) : ViewModel(),
     fun onSpeechResult(question: String) {
         preparationJob = intent {
             reduce { state.copy(isListening = false, question = question, isPreparing = true) }
-
-            if (EAR_LISTEN_KEYWORDS.any { question.lowercase().contains(it) }) {
-                postSideEffect(MainSideEffect.TriggerEarListen)
-            }
 
             try {
                 val answer = askQuestion(question)
@@ -88,10 +83,4 @@ class MainViewModel(private val askQuestion: AskQuestionUseCase) : ViewModel(),
         startListening()
     }
 
-    companion object {
-        private val EAR_LISTEN_KEYWORDS = listOf(
-            "подними руку", "приложи руку", "руку к уху",
-            "подслушай", "подслушивай", "послушай внимательно"
-        )
-    }
 }

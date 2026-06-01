@@ -1,10 +1,9 @@
 package kg.nurtelecom.o.talkingavatar.ui.avatar
 
-import android.opengl.Matrix
+import android.util.Log
 import com.google.android.filament.Engine
 import com.google.android.filament.gltfio.FilamentAsset
 import io.github.sceneview.model.ModelInstance
-import kotlinx.coroutines.delay
 
 class AvatarRendererImpl(
     private val engine: Engine,
@@ -14,12 +13,32 @@ class AvatarRendererImpl(
     private val morphTargetMap = mutableMapOf<String, MutableList<Pair<Int, Int>>>()
     private val morphOverrides = HashMap<String, Float>(32)
 
-    var pauseAnimation: (() -> Unit)? = null
-    var resumeAnimation: (() -> Unit)? = null
+    @Volatile var isListening: Boolean = false
+        private set
+
+    @Volatile var leanDeg: Float = 0f
+        private set
+    private var leanTarget = 0f
+
+    override fun setListening(active: Boolean) {
+        isListening = active
+    }
+
+    private fun lerpListeningState() {
+        leanTarget = if (isListening) 25f else 0f
+        val prev = leanDeg
+        val next = prev + (leanTarget - prev) * 0.06f
+        leanDeg = if (!isListening && next < 0.1f) 0f else next
+    }
+
+    fun applyHeadOverride() {
+        lerpListeningState()
+        // lean is applied via modelNode.rotation in AvatarSceneView — nothing to do here
+    }
 
     companion object {
-        private const val LEFT_ARM_ENTITY = 25
-        private const val LEFT_FORE_ARM_ENTITY = 26
+        private const val HEAD_ENTITY = 21
+        private const val NECK_ENTITY = 20
     }
 
     init {
@@ -44,9 +63,7 @@ class AvatarRendererImpl(
     }
 
     override fun setMorphWeight(name: String, weight: Float) {
-        val clamped = weight.coerceIn(0f, 1f)
-        morphOverrides[name] = clamped
-        applyMorphWeight(name, clamped)
+        morphOverrides[name] = weight.coerceIn(0f, 1f)
     }
 
     private fun applyMorphWeight(name: String, weight: Float) {
@@ -82,47 +99,4 @@ class AvatarRendererImpl(
         setMorphWeight(FacialBlendShape.MOUTH_SHRUG_LOWER, 0f)
     }
 
-    override suspend fun playEarListenGesture() {
-        pauseAnimation?.invoke()
-        delay(32L)
-        val tm = engine.transformManager
-        val armTi = tm.getInstance(LEFT_ARM_ENTITY)
-        val foreTi = tm.getInstance(LEFT_FORE_ARM_ENTITY)
-
-        val frozenArm = FloatArray(16).also { tm.getTransform(armTi, it) }
-        val frozenFore = FloatArray(16).also { tm.getTransform(foreTi, it) }
-
-        val rot = FloatArray(16)
-        Matrix.setIdentityM(rot, 0)
-        Matrix.rotateM(rot, 0, -80f, 1f, 0f, 0f)
-        val earArm = FloatArray(16).also { Matrix.multiplyMM(it, 0, frozenArm, 0, rot, 0) }
-
-        Matrix.setIdentityM(rot, 0)
-        Matrix.rotateM(rot, 0, 90f, 0f, 1f, 0f)
-        val earFore = FloatArray(16).also { Matrix.multiplyMM(it, 0, frozenFore, 0, rot, 0) }
-
-        animateBones(armTi, foreTi, frozenArm, earArm, frozenFore, earFore, steps = 24, stepMs = 25L)
-        delay(3000L)
-        animateBones(armTi, foreTi, earArm, frozenArm, earFore, frozenFore, steps = 24, stepMs = 25L)
-
-        resumeAnimation?.invoke()
-    }
-
-    private suspend fun animateBones(
-        armTi: Int, foreTi: Int,
-        fromArm: FloatArray, toArm: FloatArray,
-        fromFore: FloatArray, toFore: FloatArray,
-        steps: Int, stepMs: Long
-    ) {
-        val tm = engine.transformManager
-        repeat(steps) { i ->
-            val t = (i + 1).toFloat() / steps
-            tm.setTransform(armTi, lerpMat(fromArm, toArm, t))
-            tm.setTransform(foreTi, lerpMat(fromFore, toFore, t))
-            delay(stepMs)
-        }
-    }
-
-    private fun lerpMat(a: FloatArray, b: FloatArray, t: Float) =
-        FloatArray(16) { i -> a[i] + (b[i] - a[i]) * t }
 }

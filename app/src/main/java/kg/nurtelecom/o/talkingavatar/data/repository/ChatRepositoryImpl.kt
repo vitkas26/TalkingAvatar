@@ -1,5 +1,6 @@
 package kg.nurtelecom.o.talkingavatar.data.repository
 
+import android.util.Log
 import kg.nurtelecom.o.talkingavatar.data.api.AnthropicMessage
 import kg.nurtelecom.o.talkingavatar.data.api.AnthropicRequest
 import kg.nurtelecom.o.talkingavatar.data.api.AnthropicService
@@ -10,10 +11,13 @@ private const val SYSTEM_PROMPT = """Ты — голосовой AI-ассист
 
 class ChatRepositoryImpl(private val service: AnthropicService) : ChatRepository {
     override suspend fun ask(question: String): String {
+        Log.d("API", "question(${question.length} chars): \"$question\"")
         val request = AnthropicRequest(
             system = SYSTEM_PROMPT,
             messages = listOf(AnthropicMessage(role = "user", content = question))
         )
-        return service.sendMessage(request).text().ifBlank { "Не могу ответить на этот вопрос." }
+        val answer = service.sendMessage(request).text().ifBlank { "Не могу ответить на этот вопрос." }
+        Log.d("API", "answer(${answer.length} chars): \"$answer\"")
+        return answer
     }
 }

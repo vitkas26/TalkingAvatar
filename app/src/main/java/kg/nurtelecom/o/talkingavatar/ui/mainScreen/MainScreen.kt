@@ -9,6 +9,7 @@ import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -90,30 +91,57 @@ fun MainScreen() {
             override fun onResults(results: Bundle) {
                 val text = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     ?.firstOrNull().orEmpty().trim()
+                Log.d("STT", "onResults chunk=\"$text\" pending=\"${pendingTextState.value}\"")
                 if (text.isNotBlank()) {
                     pendingTextState.value = (pendingTextState.value + " " + text).trim()
+                    Log.d("STT", "accumulated=\"${pendingTextState.value}\"")
                     commitJobRef.value?.cancel()
                     commitJobRef.value = scope.launch {
                         delay(2000L)
                         val final = pendingTextState.value
                         pendingTextState.value = ""
                         if (final.isNotBlank()) {
+                            Log.d("STT", ">>> SEND TO API: \"$final\"")
                             speechRecognizer.cancel()
                             viewModel.onSpeechResult(final)
                         }
                     }
                 }
-                speechRecognizer.startListening(recognitionIntent)
+                // Задержка 300ms — даём распознавателю время сбросить состояние.
+                // Это предотвращает немедленный ERROR_CLIENT (5) который прилетает при
+                // мгновенном вызове startListening сразу после onResults.
+                Handler(Looper.getMainLooper()).postDelayed({
+                    speechRecognizer.startListening(recognitionIntent)
+                }, 300L)
             }
 
             override fun onError(error: Int) {
-                Handler(Looper.getMainLooper()).postDelayed({
-                    if (pendingTextState.value.isNotBlank()) {
-                        speechRecognizer.startListening(recognitionIntent)
-                    } else {
-                        viewModel.startListening()
+                Log.d("STT", "onError code=$error pending=\"${pendingTextState.value}\"")
+                val pending = pendingTextState.value
+                if (pending.isNotBlank()) {
+                    // ERROR_CLIENT (5) сразу после onResults — это штатная ситуация
+                    // (распознаватель завершает сессию). onResults уже запланировал рестарт
+                    // на +300ms, не добавляем ещё один.
+                    // При других ошибках (7 = тишина) — пробуем поймать продолжение фразы.
+                    if (error != SpeechRecognizer.ERROR_CLIENT) {
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            if (pendingTextState.value.isNotBlank()) {
+                                speechRecognizer.startListening(recognitionIntent)
+                            }
+                        }, 300L)
                     }
-                }, 300L)
+                } else {
+                    // ERROR_CLIENT (5) с пустым pending = cancel() из StartSpeechRecognition
+                    // уже вызвал startListening() сразу после — игнорируем, иначе двойной старт
+                    // прервёт новую сессию.
+                    // Остальные ошибки (7 = тишина/таймаут) — рестарт recognizer напрямую,
+                    // не через VM, чтобы не триггерить повторный StartSpeechRecognition.
+                    if (error != SpeechRecognizer.ERROR_CLIENT) {
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            speechRecognizer.startListening(recognitionIntent)
+                        }, 300L)
+                    }
+                }
             }
         }
     }
@@ -166,7 +194,6 @@ fun MainScreen() {
             speechRecognizer.startListening(recognitionIntent)
             awaitClose {
                 handler.removeCallbacksAndMessages(null)
-                speechRecognizer.cancel()
                 speechRecognizer.setRecognitionListener(normalListener)
             }
         }

@@ -39,7 +39,7 @@ fun AvatarSceneView(
         val animDuration = glbAnimator.getAnimationDuration(0)
 
         val modelNode = object : ModelNode(
-            modelInstance = instance, autoAnimate = false, scaleToUnits = 2.2f
+            modelInstance = instance, autoAnimate = false, scaleToUnits = 3f
         ) {
             private var animTime = 0f
             private var lastFrameNs = -1L
@@ -57,7 +57,7 @@ fun AvatarSceneView(
                 renderer.reapplyMorphOverrides()
             }
         }.apply {
-            position = Position(x = 0f, y = -1.5f, z = -3f)
+            position = Position(x = 0f, y = -2.5f, z = -3f)
         }
         sceneView.addChildNode(modelNode)
         onRendererReady?.invoke(renderer)

@@ -66,6 +66,7 @@ dependencies {
     implementation(libs.converter.gson)
     implementation(libs.okhttp)
 
+    implementation(libs.androidx.media3.exoplayer)
     implementation(libs.lottie.compose)
 
     implementation(libs.kotlinx.coroutines.android)

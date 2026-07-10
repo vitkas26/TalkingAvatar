@@ -3,37 +3,86 @@ package kg.nurtelecom.o.talkingavatar.ui.utils
 import android.content.Context
 import android.media.MediaPlayer
 import android.speech.tts.TextToSpeech
+import android.util.Log
 import java.io.File
 import java.util.Locale
+
+private const val TAG = "AudioPlayer"
+
+// Заполняется по факту прогона на тестовом телефоне — подставить реальное имя после прослушивания.
+// en/zh не заданы: там "любой голос под язык" уже случайно попал в женский, трогать не стал.
+private val preferredFemaleVoiceByLanguage = mapOf(
+    "ru" to "ru-ru-x-rue-local", // кандидат на замену rud (сейчас мужик) — нужно прослушать
+    "tr" to "tr-tr-x-efu-network", // кандидат, вариантов было 3 (tmc/efu/mfm) — нужно прослушать
+)
 
 class AudioPlayer(private val context: Context) {
 
     private var tts: TextToSpeech? = null
     private var mediaPlayer: MediaPlayer? = null
+    private var isReady = false
+    private var pendingPlay: (() -> Unit)? = null
 
     fun initialize() {
         if (tts == null) {
             tts = TextToSpeech(context) { status ->
-                if (status == TextToSpeech.SUCCESS) {
-                    tts?.language = Locale("ru", "RU")
-                    val voice = tts?.voices?.find {
-                        it.locale.language == "ru" &&
-                                (it.name.contains("ruc", true)
-                                        || it.name.contains("male", true)
-                                        || it.name.contains("rud", true))
-                    }
-                    tts?.voice = voice
-                }
+                Log.d(TAG, "onInit status=$status")
+                isReady = true
+                pendingPlay?.invoke()
+                pendingPlay = null
             }
         }
     }
 
     fun play(
         text: String,
+        languageTag: String = "ru-RU",
         onStart: () -> Unit = {},
         onFinish: () -> Unit = {},
         onError: (Throwable) -> Unit = {}
     ) {
+        // TextToSpeech(...) возвращает объект сразу, но движок биндится асинхронно —
+        // synthesizeToFile() до onInit(SUCCESS) падает с ERROR. Копим один отложенный
+        // вызов и проигрываем его, когда движок реально готов.
+        if (!isReady) {
+            pendingPlay = { playReady(text, languageTag, onStart, onFinish, onError) }
+            return
+        }
+        playReady(text, languageTag, onStart, onFinish, onError)
+    }
+
+    private fun applyVoice(languageTag: String) {
+        val locale = Locale.forLanguageTag(languageTag)
+        tts?.language = locale
+        val voices = tts?.voices.orEmpty()
+
+        val preferredName = preferredFemaleVoiceByLanguage[locale.language]
+        val exactMatch = voices.find { it.name == preferredName }
+
+        // fallback-цепочка, если точное имя не нашлось (другое устройство/движок)
+        val heuristicMatch = voices.find {
+            it.locale.language == locale.language && it.name.contains("female", ignoreCase = true)
+        }
+        val anyVoiceForLanguage = voices.find { it.locale.language == locale.language }
+
+        val chosen = exactMatch ?: heuristicMatch ?: anyVoiceForLanguage
+        // TextToSpeech.setVoice(null) кидает NPE внутри самого Android API (voice.getName()
+        // без null-проверки) — если под язык вообще нет голоса (например ky-KG), просто не
+        // трогаем voice, движок озвучит текущим/дефолтным голосом вместо краша.
+        if (chosen != null) {
+            tts?.voice = chosen
+        }
+        Log.d(TAG, "languageTag=$languageTag -> voice=${chosen?.name} (exact=${exactMatch != null})")
+    }
+
+    private fun playReady(
+        text: String,
+        languageTag: String,
+        onStart: () -> Unit,
+        onFinish: () -> Unit,
+        onError: (Throwable) -> Unit,
+    ) {
+        applyVoice(languageTag)
         val audioFile = File(context.cacheDir, "tts_output.wav")
         val utteranceId = "utt_${System.currentTimeMillis()}"
 

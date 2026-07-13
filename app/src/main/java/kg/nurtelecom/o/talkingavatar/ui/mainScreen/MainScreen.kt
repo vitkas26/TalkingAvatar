@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kg.nurtelecom.o.talkingavatar.statemachine.AvatarState
 import kg.nurtelecom.o.talkingavatar.ui.avatar.AvatarRenderer
+import kg.nurtelecom.o.talkingavatar.ui.rotateFullScreen
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -58,9 +59,6 @@ fun MainScreen() {
             is MainSideEffect.ShowError -> {
                 scope.launch { snackBarHostState.showSnackbar(sideEffect.message) }
             }
-            MainSideEffect.RequestListening -> {
-                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            }
         }
     }
 
@@ -70,11 +68,11 @@ fun MainScreen() {
         state.isPreparing -> AvatarState.Processing
         state.isSpeaking -> AvatarState.Speaking
         state.error != null -> AvatarState.Error
-        !state.hasSelectedLanguage -> AvatarState.Welcome
+        state.showWelcome -> AvatarState.Welcome
         else -> AvatarState.Idle
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().rotateFullScreen()) {
         avatarRenderer.Render(avatarState)
 
         Column(

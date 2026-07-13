@@ -6,6 +6,10 @@ import kg.nurtelecom.o.talkingavatar.data.api.ApiService
 import kg.nurtelecom.o.talkingavatar.data.models.QuestionRequest
 import kg.nurtelecom.o.talkingavatar.speech.SttEngine
 import kg.nurtelecom.o.talkingavatar.speech.TtsEngine
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.seconds
 import org.orbitmvi.orbit.Container
 import org.orbitmvi.orbit.ContainerHost
 import org.orbitmvi.orbit.container
@@ -18,13 +22,12 @@ data class MainState(
     val isPreparing: Boolean = false,
     val error: String? = null,
     val selectedLanguage: Language = Language.Russian,
-    val hasSelectedLanguage: Boolean = false,
+    val showWelcome: Boolean = true,
     val isLanguageSheetOpen: Boolean = false,
 )
 
 sealed class MainSideEffect {
     data class ShowError(val message: String) : MainSideEffect()
-    data object RequestListening : MainSideEffect()
 }
 
 class MainViewModel(
@@ -35,10 +38,25 @@ class MainViewModel(
 
     override val container: Container<MainState, MainSideEffect> = viewModelScope.container(MainState())
 
-    // Приветствие звучит только после явного выбора языка (см. selectLanguage), не на старте —
-    // до выбора языка аватар просто "зовёт" через Welcome-состояние, без озвучки. И после
-    // приветствия, и после каждого ответа сразу просим слушать дальше — permission на микрофон
-    // дёргает MainScreen по сайд-эффекту (см. onSpeechFinished).
+    private var idleTimeoutJob: Job? = null
+
+    // Welcome — не разовый экран, а idle-режим: если 10 минут никто не взаимодействует
+    // (не жмёт "Задать вопрос", не выбирает язык), аватар сам возвращается в Welcome.
+    // Таймер перезапускается на каждое реальное действие пользователя (см. startListening/selectLanguage).
+    private fun resetIdleTimer() {
+        idleTimeoutJob?.cancel()
+        idleTimeoutJob = viewModelScope.launch {
+            delay(10.seconds) // TODO тест: вернуть 10.minutes перед пилотом
+            intent { reduce { state.copy(showWelcome = true) } }
+        }
+    }
+
+    // Выставляется из SettingsScreen при переходе на аватар — только язык, без озвучки
+    // и без выхода из Welcome. Приветствие звучит только через selectLanguage (боттомшит).
+    fun setInitialLanguage(language: Language) = intent {
+        reduce { state.copy(selectedLanguage = language) }
+    }
+
     private fun speakGreeting() = intent {
         ttsEngine.speak(
             text = state.selectedLanguage.greetingText,
@@ -49,9 +67,12 @@ class MainViewModel(
         )
     }
 
+    // Никакого авто-переслушивания — дальше слушаем только по явному тапу "Задать вопрос".
+    // resetIdleTimer() здесь, а не в startListening/selectLanguage — 10 минут это тишина
+    // ПОСЛЕ того как аватар домолвил, а не общая длительность цикла Listening->Processing->Speaking.
     private fun onSpeechFinished() = intent {
         reduce { state.copy(isSpeaking = false, isPreparing = false) }
-        postSideEffect(MainSideEffect.RequestListening)
+        resetIdleTimer()
     }
 
     fun showLanguageSheet() = intent {
@@ -63,7 +84,7 @@ class MainViewModel(
     }
 
     fun selectLanguage(language: Language) = intent {
-        reduce { state.copy(selectedLanguage = language, hasSelectedLanguage = true, isLanguageSheetOpen = false) }
+        reduce { state.copy(selectedLanguage = language, showWelcome = false, isLanguageSheetOpen = false) }
         speakGreeting()
     }
 
@@ -73,12 +94,20 @@ class MainViewModel(
     }
 
     fun startListening() = intent {
-        reduce { state.copy(isListening = true, error = null) }
+        reduce { state.copy(isListening = true, showWelcome = false, error = null) }
         sttEngine.startListening(
             language = state.selectedLanguage.code,
+            onProcessingStarted = { onSttProcessingStarted() },
             onResult = { text -> onSpeechResult(text) },
             onError = { error -> onSttError(error) },
         )
+    }
+
+    // Запись закончилась (микрофон уже отпущен), идёт распознавание на сервере — показываем
+    // Processing вместо того чтобы висеть в Listening до onResult/onError (актуально для
+    // Whisper/AkylAI, где это отдельный сетевой запрос после записи).
+    private fun onSttProcessingStarted() = intent {
+        reduce { state.copy(isListening = false, isPreparing = true) }
     }
 
     fun onSpeechResult(question: String) = intent {
@@ -110,12 +139,14 @@ class MainViewModel(
     }
 
     private fun onSttError(error: Throwable) = intent {
-        reduce { state.copy(isListening = false, error = error.message) }
+        reduce { state.copy(isListening = false, isPreparing = false, error = error.message) }
+        resetIdleTimer()
         postSideEffect(MainSideEffect.ShowError(error.message ?: "Ошибка распознавания речи"))
     }
 
     private fun onTtsError(error: Throwable) = intent {
         reduce { state.copy(isSpeaking = false, isPreparing = false, error = error.message) }
+        resetIdleTimer()
         postSideEffect(MainSideEffect.ShowError("Ошибка TTS: ${error.message}"))
     }
 }

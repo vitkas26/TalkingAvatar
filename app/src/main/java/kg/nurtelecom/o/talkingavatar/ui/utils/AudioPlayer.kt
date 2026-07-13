@@ -124,10 +124,12 @@ class AudioPlayer(private val context: Context) {
                 setOnCompletionListener {
                     onFinish()
                     release()
+                    mediaPlayer = null
                 }
                 setOnErrorListener { _, what, extra ->
                     onError(Exception("MediaPlayer ошибка $what подробности = $extra"))
                     release()
+                    mediaPlayer = null
                     true
                 }
             }
@@ -138,7 +140,14 @@ class AudioPlayer(private val context: Context) {
 
     fun stop() {
         mediaPlayer?.let {
-            if (it.isPlaying) it.stop()
+            // isPlaying() кидает IllegalStateException в состояниях Error/End (например если
+            // MediaPlayer уже сам себя release() из onCompletion, а stop() дёрнули повторно
+            // до того как поле mediaPlayer успело обнулиться, при быстром переключении движков).
+            try {
+                if (it.isPlaying) it.stop()
+            } catch (e: IllegalStateException) {
+                Log.d(TAG, "isPlaying()/stop() on invalid-state MediaPlayer: ${e.message}")
+            }
             it.release()
         }
         mediaPlayer = null

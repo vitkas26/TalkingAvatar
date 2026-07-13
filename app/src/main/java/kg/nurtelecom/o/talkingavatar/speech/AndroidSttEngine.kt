@@ -18,6 +18,7 @@ class AndroidSttEngine(private val context: Context) : SttEngine {
     private var recognizer: SpeechRecognizer? = null
     private var onResultCallback: ((String) -> Unit)? = null
     private var onErrorCallback: ((Throwable) -> Unit)? = null
+    private var onProcessingStartedCallback: (() -> Unit)? = null
 
     // Один слушатель на весь живой инстанс recognizer — колбэки конкретного вызова
     // startListening() читаются из полей выше, обновляемых при каждом запросе.
@@ -44,6 +45,7 @@ class AndroidSttEngine(private val context: Context) : SttEngine {
         override fun onBufferReceived(buffer: ByteArray?) {}
         override fun onEndOfSpeech() {
             Log.d(TAG, "onEndOfSpeech")
+            onProcessingStartedCallback?.invoke()
         }
         override fun onPartialResults(partialResults: Bundle?) {
             Log.d(TAG, "onPartialResults=${partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)}")
@@ -51,13 +53,24 @@ class AndroidSttEngine(private val context: Context) : SttEngine {
         override fun onEvent(eventType: Int, params: Bundle?) {}
     }
 
-    override fun startListening(language: String, onResult: (String) -> Unit, onError: (Throwable) -> Unit) {
-        mainHandler.post { startListeningOnMainThread(language, onResult, onError) }
+    override fun startListening(
+        language: String,
+        onProcessingStarted: () -> Unit,
+        onResult: (String) -> Unit,
+        onError: (Throwable) -> Unit,
+    ) {
+        mainHandler.post { startListeningOnMainThread(language, onProcessingStarted, onResult, onError) }
     }
 
-    private fun startListeningOnMainThread(language: String, onResult: (String) -> Unit, onError: (Throwable) -> Unit) {
+    private fun startListeningOnMainThread(
+        language: String,
+        onProcessingStarted: () -> Unit,
+        onResult: (String) -> Unit,
+        onError: (Throwable) -> Unit,
+    ) {
         onResultCallback = onResult
         onErrorCallback = onError
+        onProcessingStartedCallback = onProcessingStarted
 
         // Держим один живой SpeechRecognizer на весь жизненный цикл движка вместо
         // destroy()+createSpeechRecognizer() на каждый запрос — быстрый recreate подряд

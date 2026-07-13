@@ -31,6 +31,7 @@ import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import kg.nurtelecom.o.talkingavatar.statemachine.AvatarState
+import kg.nurtelecom.o.talkingavatar.ui.rotateFullScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -38,15 +39,14 @@ import kotlinx.coroutines.launch
 private const val TAG = "VideoLoopAvatar"
 private const val PROCESSING_LOTTIE_ASSET = "avatar_processing.lottie"
 
-// Единственное место маппинга состояния на файлы видео — добавлять/менять ассеты только здесь.
-// Несколько файлов на состояние = при каждом входе в состояние выбирается случайный, для
-// живости повтора. Processing сюда не входит: для него отдельная Lottie-ветка в Render() ниже.
-private val stateToVideoAssets = mapOf(
-    AvatarState.Welcome to listOf("avatar_welcome.mp4", "avatar_welcome1.mp4"),
-    AvatarState.Idle to listOf("avatar_idle.mp4"),
-    AvatarState.Listening to listOf("avatar_listening.mp4"),
-    AvatarState.Speaking to listOf("avatar_speaking.mp4"),
-    AvatarState.Error to listOf("avatar_error.mp4"),
+// Единственное место маппинга состояния на файл видео — добавлять/менять ассеты только здесь.
+// Processing сюда не входит: для него отдельная Lottie-ветка в Render() ниже.
+private val stateToVideoAsset = mapOf(
+    AvatarState.Welcome to "avatar_welcome.mp4",
+    AvatarState.Idle to "avatar_idle.mp4",
+    AvatarState.Listening to "avatar_listening.mp4",
+    AvatarState.Speaking to "avatar_speaking.mp4",
+    AvatarState.Error to "avatar_error.mp4",
 )
 
 private val stateToPlaceholderColor = mapOf(
@@ -64,16 +64,11 @@ private val stateToPlaceholderColor = mapOf(
 class VideoLoopAvatarRenderer @OptIn(UnstableApi::class) constructor
     (private val exoPlayer: ExoPlayer) : AvatarRenderer {
 
-    // Список кандидатов активного состояния — читается из onPlaybackStateChanged при STATE_ENDED,
-    // чтобы для состояний с несколькими клипами (Welcome) перевыбирать случайный при каждом
-    // окончании петли, а не один раз за весь заход в состояние.
-    private var activeCandidates: List<String> = emptyList()
-
-    // Живёт на весь ExoPlayer (singleton), не привязан к конкретной композиции — переключение
-    // видео может прийти как из Composable (смена state), так и из Player.Listener (реролл
-    // по конце петли), нужен общий scope для обоих случаев. AndroidUiDispatcher.Main — не просто
-    // Dispatchers.Main: он также даёт MonotonicFrameClock, без которого Animatable.animateTo()
-    // падает с IllegalStateException ("MonotonicFrameClock is not available").
+    // Живёт на весь ExoPlayer (singleton), не привязан к конкретной композиции — фейд (см. ниже)
+    // запускается и из Composable (смена state), и из Player.Listener (onRenderedFirstFrame).
+    // AndroidUiDispatcher.Main — не просто Dispatchers.Main: он также даёт MonotonicFrameClock,
+    // без которого Animatable.animateTo() падает с IllegalStateException
+    // ("MonotonicFrameClock is not available").
     private val scope = CoroutineScope(AndroidUiDispatcher.Main + SupervisorJob())
 
     // Белый оверлей поверх TextureView: коротко проявляем перед сменой MediaItem, снова
@@ -94,6 +89,7 @@ class VideoLoopAvatarRenderer @OptIn(UnstableApi::class) constructor
         // от GOP/keyframe-раскладки самого файла; если после подключения чистового видео (без
         // чёрных кадров в начале/конце) рывок всё ещё заметен — это его нижний предел без
         // двойного ping-pong буфера, которым здесь намеренно не усложняем.
+        exoPlayer.repeatMode = Player.REPEAT_MODE_ONE
         exoPlayer.setSeekParameters(SeekParameters.EXACT)
         // Звук из видео-клипов не нужен: голос озвучивает TtsEngine отдельно, звуковая
         // дорожка в файле — просто исходник со съёмки. Полностью отключаем аудио-трек
@@ -103,16 +99,6 @@ class VideoLoopAvatarRenderer @OptIn(UnstableApi::class) constructor
             .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_AUDIO, true)
             .build()
         exoPlayer.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                // Срабатывает только для состояний с несколькими клипами (repeatMode=OFF там,
-                // см. ниже) — для одиночных клипов стоит REPEAT_MODE_ONE, ended сюда не долетает.
-                if (playbackState == Player.STATE_ENDED) {
-                    val next = activeCandidates.randomOrNull() ?: return
-                    Log.d(TAG, "loop ended -> reshuffled next=$next")
-                    switchTo(next)
-                }
-            }
-
             override fun onRenderedFirstFrame() {
                 // Новый кадр реально готов — гасим белый оверлей, открывая видео.
                 scope.launch { overlayAlpha.animateTo(0f, tween(800)) }
@@ -153,27 +139,19 @@ class VideoLoopAvatarRenderer @OptIn(UnstableApi::class) constructor
             return
         }
 
-        val available = remember(state) {
-            val candidates = stateToVideoAssets[state].orEmpty()
+        val assetName = remember(state) {
+            val candidate = stateToVideoAsset[state]
             val existing = context.assets.list("")?.toSet().orEmpty()
-            candidates.filter { it in existing }
+            candidate?.takeIf { it in existing }
         }
-        val assetName = available.firstOrNull()
 
         if (assetName != null) {
             LaunchedEffect(state) {
-                val picked = available.random()
-                Log.d(TAG, "avatar state=$state -> candidates=$available picked=$picked")
-                // Один клип на состояние — обычный внутренний луп ExoPlayer (плавнее).
-                // Несколько клипов — repeatMode выключен, при STATE_ENDED слушатель в init{}
-                // сам перевыбирает случайный следующий, так что во время использования (не
-                // только между перезапусками) видео реально меняется.
-                activeCandidates = if (available.size > 1) available else emptyList()
-                exoPlayer.repeatMode = if (available.size > 1) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
+                Log.d(TAG, "avatar state=$state -> loading asset=$assetName")
                 // Без явного stop() перед сменой MediaItem: ExoPlayer сам переключает
                 // рендерер на новый item, а stop() только добавляет лишний пустой кадр
-                // на стыке между состояниями. Чёрный оверлей (см. switchTo) маскирует его.
-                switchTo(picked)
+                // на стыке между состояниями. Белый оверлей (см. switchTo) маскирует его.
+                switchTo(assetName)
             }
             // TextureView, не PlayerView/SurfaceView: SurfaceView внутри Compose AndroidView
             // ломает z-order/clipping с соседними composable, TextureView композится как

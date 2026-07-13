@@ -65,7 +65,6 @@ fun SettingsScreen(onStart: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .rotateFullScreen()
             .padding(24.dp)
             .verticalScroll(rememberScrollState()),
     ) {

@@ -72,7 +72,7 @@ fun MainScreen() {
         else -> AvatarState.Idle
     }
 
-    Box(modifier = Modifier.fillMaxSize().rotateFullScreen()) {
+    Box(modifier = Modifier.fillMaxSize()) {
         avatarRenderer.Render(avatarState)
 
         Column(

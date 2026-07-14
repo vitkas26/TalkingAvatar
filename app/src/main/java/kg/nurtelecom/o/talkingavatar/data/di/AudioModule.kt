@@ -19,7 +19,9 @@ import kg.nurtelecom.o.talkingavatar.speech.piper.PiperTtsEngine
 import kg.nurtelecom.o.talkingavatar.speech.whisper.WhisperApiService
 import kg.nurtelecom.o.talkingavatar.speech.whisper.WhisperConfig
 import kg.nurtelecom.o.talkingavatar.speech.whisper.WhisperSttEngine
+import okhttp3.Credentials
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.qualifier.named
@@ -38,6 +40,22 @@ private val akylai = named("akylai")
 private val piper = named("piper")
 private val languageAware = named("languageAware")
 private val languageAwarePiper = named("languageAwarePiper")
+
+// Basic Auth для тестового VPS-стенда за nginx: если basicAuthUser пуст, запрос пропускается
+// без изменений (сборка без VPS/без авторизации не ломается). Один интерсептор на все три клиента,
+// чтобы Authorization не дублировать в каждом OkHttpClient.Builder() отдельно.
+private fun basicAuthInterceptor(engineSettings: EngineSettings) = Interceptor { chain ->
+    val original = chain.request()
+    val user = engineSettings.basicAuthUser
+    val request = if (user.isNotEmpty()) {
+        original.newBuilder()
+            .header("Authorization", Credentials.basic(user, engineSettings.basicAuthPassword))
+            .build()
+    } else {
+        original
+    }
+    chain.proceed(request)
+}
 
 val audioModule = module {
     single { EngineSettings() }
@@ -76,6 +94,7 @@ val audioModule = module {
                         }
                         chain.proceed(request)
                     }
+                    .addInterceptor(basicAuthInterceptor(engineSettings))
                     .build(),
             )
             .addConverterFactory(GsonConverterFactory.create())
@@ -114,6 +133,7 @@ val audioModule = module {
                         }
                         chain.proceed(request)
                     }
+                    .addInterceptor(basicAuthInterceptor(engineSettings))
                     .build(),
             )
             .addConverterFactory(GsonConverterFactory.create())
@@ -150,6 +170,7 @@ val audioModule = module {
                         }
                         chain.proceed(request)
                     }
+                    .addInterceptor(basicAuthInterceptor(engineSettings))
                     .build(),
             )
             .addConverterFactory(GsonConverterFactory.create())

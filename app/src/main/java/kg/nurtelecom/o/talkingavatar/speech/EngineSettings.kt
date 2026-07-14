@@ -23,4 +23,9 @@ class EngineSettings {
 
     // То же самое для локального Piper TTS-сервера.
     var piperBaseUrl: String = PiperConfig.BASE_URL
+
+    // Basic Auth для тестового VPS-стенда за nginx (30 дней, не продакшен-секрет).
+    // Читается BasicAuthInterceptor в AudioModule на каждый запрос, как и base URL выше.
+    var basicAuthUser: String = "admin"
+    var basicAuthPassword: String = "VIKtor26!@88"
 }

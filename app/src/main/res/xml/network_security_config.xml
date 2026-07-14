@@ -10,4 +10,10 @@
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="true" />
+    <domain-config>
+        <domain includeSubdomains="false">138.16.155.105</domain>
+        <trust-anchors>
+            <certificates src="@raw/nurai_cert"/>
+        </trust-anchors>
+    </domain-config>
 </network-security-config>

@@ -10,7 +10,7 @@ import retrofit2.http.Part
 // облачного OpenAI). BASE_URL — структурная заглушка для Retrofit, реальный адрес берётся из
 // EngineSettings.whisperBaseUrl через интерсептор в AudioModule.
 object WhisperConfig {
-    const val BASE_URL = "http://10.191.239.144:8001/"
+    const val BASE_URL = "https://138.16.155.105/whisper/"
 }
 
 data class WhisperSttResponse(val text: String?)

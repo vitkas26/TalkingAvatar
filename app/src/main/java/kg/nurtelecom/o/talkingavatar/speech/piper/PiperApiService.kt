@@ -9,7 +9,7 @@ import retrofit2.http.Streaming
 // тот же паттерн: baseUrl ниже только структурная заглушка, реальный адрес — из
 // EngineSettings.piperBaseUrl через интерсептор в AudioModule).
 object PiperConfig {
-    const val BASE_URL = "http://10.191.239.144:8002/"
+    const val BASE_URL = "https://138.16.155.105/piper/"
 }
 
 // language — необязателен (ru/en/de/zh/tr), сервер по умолчанию "ru". ky не поддерживается —

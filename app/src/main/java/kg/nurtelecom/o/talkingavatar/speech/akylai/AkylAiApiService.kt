@@ -13,7 +13,7 @@ import retrofit2.http.Streaming
 // BASE_URL — заглушка на локальный сервис: с эмулятора "10.0.2.2" указывает на localhost хоста,
 // с реального устройства нужен реальный IP ноутбука в той же сети.
 object AkylAiConfig {
-    const val BASE_URL = "http://10.191.239.144:8000/"
+    const val BASE_URL = "https://138.16.155.105/akylai/"
 }
 
 data class AkylAiSttResponse(val text: String?)

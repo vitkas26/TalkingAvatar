@@ -75,7 +75,7 @@ val audioModule = module {
             .client(
                 OkHttpClient.Builder()
                     .connectTimeout(10, TimeUnit.SECONDS)
-                    .readTimeout(60, TimeUnit.SECONDS)
+                    .readTimeout(120, TimeUnit.SECONDS)
                     .addInterceptor { chain ->
                         val original = chain.request()
                         val override = engineSettings.whisperBaseUrl.toHttpUrlOrNull()
@@ -114,7 +114,7 @@ val audioModule = module {
             .client(
                 OkHttpClient.Builder()
                     .connectTimeout(10, TimeUnit.SECONDS)
-                    .readTimeout(60, TimeUnit.SECONDS)
+                    .readTimeout(120, TimeUnit.SECONDS)
                     .addInterceptor { chain ->
                         val original = chain.request()
                         val override = engineSettings.akylAiBaseUrl.toHttpUrlOrNull()
@@ -151,7 +151,7 @@ val audioModule = module {
             .client(
                 OkHttpClient.Builder()
                     .connectTimeout(10, TimeUnit.SECONDS)
-                    .readTimeout(60, TimeUnit.SECONDS)
+                    .readTimeout(120, TimeUnit.SECONDS)
                     .addInterceptor { chain ->
                         val original = chain.request()
                         val override = engineSettings.piperBaseUrl.toHttpUrlOrNull()

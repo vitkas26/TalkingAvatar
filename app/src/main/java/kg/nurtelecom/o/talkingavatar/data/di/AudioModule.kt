@@ -45,6 +45,7 @@ private val piper = named("piper")
 private val languageAware = named("languageAware")
 private val languageAwarePiper = named("languageAwarePiper")
 private val googleCloud = named("googleCloud")
+private val languageAwareGoogleCloud = named("languageAwareGoogleCloud")
 
 // Basic Auth для тестового VPS-стенда за nginx: если basicAuthUser пуст, запрос пропускается
 // без изменений (сборка без VPS/без авторизации не ломается). Один интерсептор на все три клиента,
@@ -247,6 +248,13 @@ val audioModule = module {
     single<TtsEngine>(languageAwarePiper) {
         LanguageAwareTtsEngine(fallbackEngine = get(piper), akylAiTtsEngine = get(akylai))
     }
+    // Комбо "Google Cloud + AkylAI": ky-* -> AkylAI, остальное -> Google Cloud вместо Whisper/Piper.
+    single<SttEngine>(languageAwareGoogleCloud) {
+        LanguageAwareSttEngine(whisperEngine = get(googleCloud), akylAiEngine = get(akylai))
+    }
+    single<TtsEngine>(languageAwareGoogleCloud) {
+        LanguageAwareTtsEngine(fallbackEngine = get(googleCloud), akylAiTtsEngine = get(akylai))
+    }
 
     // --- Финальный движок, который реально инжектится в MainViewModel: поверх языкового
     // роутинга ещё и ручной оверрайд с экрана настроек (debug для пилота) ---
@@ -258,6 +266,7 @@ val audioModule = module {
             akylAiEngine = get(akylai),
             languageAwareEngine = get(languageAware),
             googleCloudEngine = get(googleCloud),
+            googleCloudPlusAkylaiEngine = get(languageAwareGoogleCloud),
         )
     }
     single<TtsEngine> {
@@ -269,6 +278,7 @@ val audioModule = module {
             languageAwareEngine = get(languageAware),
             piperAkylAiEngine = get(languageAwarePiper),
             googleCloudEngine = get(googleCloud),
+            googleCloudPlusAkylaiEngine = get(languageAwareGoogleCloud),
         )
     }
 }

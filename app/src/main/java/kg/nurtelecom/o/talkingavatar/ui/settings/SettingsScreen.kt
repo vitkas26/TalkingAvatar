@@ -39,6 +39,7 @@ private fun sttChoiceLabel(choice: SttEngineChoice) = when (choice) {
     SttEngineChoice.WHISPER -> "Whisper (cloud)"
     SttEngineChoice.AKYLAI -> "AkylAI-STT"
     SttEngineChoice.GOOGLE_CLOUD -> "Google Cloud STT"
+    SttEngineChoice.GOOGLE_CLOUD_PLUS_AKYLAI -> "Google Cloud + AkylAI (по языку: ky → AkylAI, остальное → Google Cloud)"
 }
 
 private fun ttsChoiceLabel(choice: TtsEngineChoice) = when (choice) {
@@ -48,6 +49,7 @@ private fun ttsChoiceLabel(choice: TtsEngineChoice) = when (choice) {
     TtsEngineChoice.PIPER -> "Piper TTS"
     TtsEngineChoice.PIPER_AKYLAI -> "Piper + AkylAI (по языку: ky → AkylAI, остальное → Piper)"
     TtsEngineChoice.GOOGLE_CLOUD -> "Google Cloud TTS (ky не поддерживается)"
+    TtsEngineChoice.GOOGLE_CLOUD_PLUS_AKYLAI -> "Google Cloud + AkylAI (по языку: ky → AkylAI, остальное → Google Cloud)"
 }
 
 // Debug-экран для пилота: выбор языка и ручной оверрайд STT/TTS-движка для тестирования
@@ -66,6 +68,7 @@ fun SettingsScreen(onStart: () -> Unit) {
     var googleCloudBaseUrl by remember { mutableStateOf(engineSettings.googleCloudBaseUrl) }
     var googleCloudProxyToken by remember { mutableStateOf(engineSettings.googleCloudProxyToken) }
     var googleCloudAltLanguages by remember { mutableStateOf(engineSettings.googleCloudAltLanguages) }
+    var googleCloudApiVersion by remember { mutableStateOf(engineSettings.googleCloudApiVersion) }
 
     Column(
         modifier = Modifier
@@ -183,12 +186,35 @@ fun SettingsScreen(onStart: () -> Unit) {
 
         Spacer(Modifier.height(16.dp))
         Text("Google Cloud STT: alt-языки (через запятую)", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Пусто — берётся дефолт по основному языку (см. GoogleCloudSttEngine.defaultAltLanguagesByPrimary)",
+            style = MaterialTheme.typography.bodySmall,
+        )
         OutlinedTextField(
             value = googleCloudAltLanguages,
             onValueChange = { googleCloudAltLanguages = it },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
+
+        Spacer(Modifier.height(16.dp))
+        Text("Google Cloud STT: версия API (A/B, временно)", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "v2 игнорирует lang/alt — полный автодетект языка на стороне Google",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        listOf("v1", "v2").forEach { version ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(
+                    selected = googleCloudApiVersion == version,
+                    onClick = { googleCloudApiVersion = version },
+                )
+                Text(version)
+            }
+        }
 
         Spacer(Modifier.height(24.dp))
         Button(
@@ -214,6 +240,7 @@ fun SettingsScreen(onStart: () -> Unit) {
                     .let { if (it.endsWith("/")) it else "$it/" }
                 engineSettings.googleCloudProxyToken = googleCloudProxyToken.trim()
                 engineSettings.googleCloudAltLanguages = googleCloudAltLanguages.trim()
+                engineSettings.googleCloudApiVersion = googleCloudApiVersion
                 mainViewModel.setInitialLanguage(selectedLanguage)
                 onStart()
             },

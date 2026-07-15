@@ -211,4 +211,47 @@ val mockAnswersByLanguage: Map<String, List<String>> = mapOf(
             "目前我们正在积极测试5G技术，让用户未来享受到极速网络体验\n" +
             "有了我们，无论是在市中心还是身处高山之上，您都能随时保持在线",
     ),
+
+    // TODO: replace with reviewed German copy before pilot launch
+    "de-DE" to listOf(
+        "In den O!Store-Filialen gibt es derzeit tolle Angebote für Smartphones. Sie können jedes Gerät zinsfrei und ohne Anzahlung in Raten kaufen\n" +
+            "Beim Kauf eines Samsung- oder Xiaomi-Smartphones schenken wir Ihnen bis zu 100 GB kostenloses Internet\n" +
+            "Besuchen Sie unsere Filialen — unsere Berater helfen Ihnen bei der Auswahl von Zubehör und der Einrichtung Ihres neuen Geräts",
+
+        "Nutzen Sie bereits die O!Money-Geldbörse in der Mein O!-App? Das ist wirklich praktisch\n" +
+            "Sie können über tausend Dienstleistungen direkt vom Guthaben Ihres Telefons bezahlen, einschließlich Nebenkosten, Bußgelder und Steuern\n" +
+            "Für jede Zahlung per QR-Code erhalten Sie Cashback, das Sie für Mobilfunkdienste oder Einkäufe bei Partnergeschäften nutzen können",
+
+        "Vergessen Sie Plastik-SIM-Karten! Im O!-Netz können Sie eine eSIM in wenigen Minuten aktivieren\n" +
+            "Das ist eine digitale Karte, die nicht verloren gehen oder beschädigt werden kann. Damit können Sie sogar auf iPhones mit nur einem SIM-Steckplatz zwei Nummern nutzen\n" +
+            "Sie können sie in der App aus der Ferne oder in jedem Service-Büro aktivieren",
+
+        "Reisen Sie mit O! um die Welt. Unsere günstigen Roaming-Pakete funktionieren in mehr als 100 Ländern\n" +
+            "Übrigens haben wir einen einzigartigen neuen Service — Internet an Bord des Flugzeugs! Jetzt bleiben Sie auch in 10.000 Metern Höhe online\n" +
+            "Aktivieren Sie einfach das Roaming vor dem Abflug, und Ihre Messenger bleiben während des gesamten Flugs aktiv",
+
+        "Verwandeln Sie Ihr Smartphone mit O!TV in ein echtes Kino\n" +
+            "Sie erhalten Zugriff auf mehr als 200 Kanäle in hoher Qualität sowie gleichzeitig 5 führende Streaming-Dienste, darunter START und Wink\n" +
+            "Der gesamte Internetverkehr für das Ansehen von Videos in der App ist völlig kostenlos und wird nicht von Ihrem Hauptpaket abgezogen",
+
+        "Wir haben VoLTE für alle unsere Kunden eingeführt! Anrufe klingen jetzt kristallklar, als stünde der Gesprächspartner direkt neben Ihnen\n" +
+            "Der größte Vorteil — Ihre Internetverbindung wird während des Anrufs nicht unterbrochen. Sie können weiterhin Dateien herunterladen oder die Navigation nutzen, während Sie telefonieren\n" +
+            "Der Service ist komplett kostenlos",
+
+        "Installieren Sie die Mein O!-App, um Ihre Nummer vollständig zu kontrollieren\n" +
+            "Dort können Sie sofort den Tarif wechseln, Ihr verbleibendes Datenvolumen prüfen, Ihre Ausgaben im Detail einsehen und sogar ein Taxi rufen\n" +
+            "Außerdem finden in der App regelmäßig Gewinnspiele mit tollen Preisen statt — von kostenlosen Datenpaketen bis hin zu den neuesten Smartphones",
+
+        "Für Ihre Sicherheit haben wir den Dienst „Wo sind die Kinder\" entwickelt. Damit sehen Sie den Standort Ihrer Liebsten in Echtzeit auf der Karte\n" +
+            "Sie erhalten eine Benachrichtigung, wenn Ihr Kind in der Schule ankommt oder nach Hause zurückkehrt\n" +
+            "Der Dienst funktioniert auch, wenn auf dem Telefon Ihres Kindes kein Internet aktiviert ist, was ihn in Notfällen sehr zuverlässig macht",
+
+        "Möchten Sie sich abheben? Bei O! können Sie eine exklusive Gold-Nummer wählen\n" +
+            "Leicht zu merkende Zahlenkombinationen eignen sich hervorragend für Geschäft oder privaten Gebrauch\n" +
+            "Eine schöne Nummer können Sie direkt auf unserer Website oder in der App im Bereich „Meine Nummer\" auswählen und reservieren",
+
+        "Das O!-Netz ist führend bei der 4G-Abdeckung in Kirgisistan. Wir bauen ständig neue Basisstationen, sogar in den entlegensten Regionen des Landes\n" +
+            "Derzeit testen wir aktiv die 5G-Technologie, damit unsere Kunden in Zukunft ultraschnelles Internet nutzen können\n" +
+            "Mit uns sind Sie immer online — egal ob im Stadtzentrum oder hoch in den Bergen",
+    ),
 )

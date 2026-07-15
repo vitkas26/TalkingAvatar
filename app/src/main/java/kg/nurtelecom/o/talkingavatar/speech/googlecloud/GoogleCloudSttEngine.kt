@@ -23,6 +23,21 @@ private const val TAG = "GoogleCloudSttEngine"
 private const val RECORD_DURATION_MS = 5_000L
 private const val SAMPLE_RATE = 16_000
 
+// Дефолтные alt-языки для Google Speech-to-text (alternativeLanguageCodes, лимит Google — 3
+// на запрос) по основному языку — используются только когда EngineSettings.googleCloudAltLanguages
+// пуст (т.е. пользователь не задал ручной оверрайд с экрана настроек). ky-KG/ru-RU идут друг у
+// друга первым приоритетом — самый частый code-switching в реальном использовании на пилоте;
+// остальные языки получают ru-RU и ky-KG первыми по той же причине (локальный код-свитчинг
+// подмешивается в любой язык на этом пилоте), третий слот — следующий вероятный кандидат.
+val defaultAltLanguagesByPrimary: Map<String, String> = mapOf(
+    "ky-KG" to "ru-RU,en-US,tr-TR",
+    "ru-RU" to "ky-KG,en-US,tr-TR",
+    "en-US" to "ru-RU,ky-KG,tr-TR",
+    "tr-TR" to "ru-RU,ky-KG,en-US",
+    "zh-CN" to "ru-RU,ky-KG,en-US",
+    "de-DE" to "ru-RU,ky-KG,en-US",
+)
+
 // В отличие от Whisper/AkylAI, google-cloud-proxy ждёт сырые PCM-байты без WAV-заголовка
 // (LINEAR16/16kHz/mono, Content-Type: application/octet-stream) — конфиг аудио передаётся
 // явно через query-параметры, а не через файл-контейнер.
@@ -87,10 +102,13 @@ class GoogleCloudSttEngine(
 
             try {
                 val body = pcm.toByteArray().toRequestBody("application/octet-stream".toMediaType())
+                val alt = engineSettings.googleCloudAltLanguages.takeIf { it.isNotBlank() }
+                    ?: defaultAltLanguagesByPrimary[language]
                 val response = apiService.transcribe(
                     audio = body,
                     lang = language,
-                    alt = engineSettings.googleCloudAltLanguages.takeIf { it.isNotBlank() },
+                    alt = alt,
+                    apiVersion = engineSettings.googleCloudApiVersion,
                 )
                 val text = response.transcript
                 withContext(Dispatchers.Main) {

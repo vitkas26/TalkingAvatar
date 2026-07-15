@@ -26,4 +26,9 @@ enum class Language(val code: String, val displayName: String, val greetingText:
         displayName = "中文",
         greetingText = "欢迎！请选择语言开始对话。",
     ),
+    German(
+        code = "de-DE",
+        displayName = "Deutsch",
+        greetingText = "Willkommen! Wählen Sie eine Sprache, um das Gespräch zu beginnen.",
+    ),
 }

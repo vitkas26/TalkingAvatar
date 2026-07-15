@@ -35,5 +35,6 @@ interface GoogleCloudApiService {
         @Body audio: RequestBody,
         @Query("lang") lang: String,
         @Query("alt") alt: String?,
+        @Query("apiVersion") apiVersion: String?,
     ): GoogleCloudSttResponse
 }

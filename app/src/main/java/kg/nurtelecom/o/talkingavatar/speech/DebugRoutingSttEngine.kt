@@ -14,6 +14,7 @@ class DebugRoutingSttEngine(
     private val akylAiEngine: SttEngine,
     private val languageAwareEngine: SttEngine,
     private val googleCloudEngine: SttEngine,
+    private val googleCloudPlusAkylaiEngine: SttEngine,
 ) : SttEngine {
 
     private var activeEngine: SttEngine? = null
@@ -29,6 +30,7 @@ class DebugRoutingSttEngine(
             SttEngineChoice.WHISPER -> whisperEngine
             SttEngineChoice.AKYLAI -> akylAiEngine
             SttEngineChoice.GOOGLE_CLOUD -> googleCloudEngine
+            SttEngineChoice.GOOGLE_CLOUD_PLUS_AKYLAI -> googleCloudPlusAkylaiEngine
             SttEngineChoice.AUTO -> languageAwareEngine
         }
         Log.d(TAG, "STT: choice=${settings.sttChoice} language=$language -> ${engine::class.simpleName}")

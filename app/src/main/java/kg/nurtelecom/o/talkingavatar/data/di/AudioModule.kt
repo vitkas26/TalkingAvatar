@@ -13,6 +13,10 @@ import kg.nurtelecom.o.talkingavatar.speech.akylai.AkylAiApiService
 import kg.nurtelecom.o.talkingavatar.speech.akylai.AkylAiConfig
 import kg.nurtelecom.o.talkingavatar.speech.akylai.AkylAiSttEngine
 import kg.nurtelecom.o.talkingavatar.speech.akylai.AkylAiTtsEngine
+import kg.nurtelecom.o.talkingavatar.speech.googlecloud.GoogleCloudApiService
+import kg.nurtelecom.o.talkingavatar.speech.googlecloud.GoogleCloudConfig
+import kg.nurtelecom.o.talkingavatar.speech.googlecloud.GoogleCloudSttEngine
+import kg.nurtelecom.o.talkingavatar.speech.googlecloud.GoogleCloudTtsEngine
 import kg.nurtelecom.o.talkingavatar.speech.piper.PiperApiService
 import kg.nurtelecom.o.talkingavatar.speech.piper.PiperConfig
 import kg.nurtelecom.o.talkingavatar.speech.piper.PiperTtsEngine
@@ -40,6 +44,7 @@ private val akylai = named("akylai")
 private val piper = named("piper")
 private val languageAware = named("languageAware")
 private val languageAwarePiper = named("languageAwarePiper")
+private val googleCloud = named("googleCloud")
 
 // Basic Auth для тестового VPS-стенда за nginx: если basicAuthUser пуст, запрос пропускается
 // без изменений (сборка без VPS/без авторизации не ломается). Один интерсептор на все три клиента,
@@ -51,6 +56,19 @@ private fun basicAuthInterceptor(engineSettings: EngineSettings) = Interceptor {
         original.newBuilder()
             .header("Authorization", Credentials.basic(user, engineSettings.basicAuthPassword))
             .build()
+    } else {
+        original
+    }
+    chain.proceed(request)
+}
+
+// Доп. авторизация для google-cloud-proxy поверх Basic Auth. Пусто — заголовок не шлём
+// (сборка без токена не ломается, как и с Basic Auth выше).
+private fun proxyTokenInterceptor(engineSettings: EngineSettings) = Interceptor { chain ->
+    val original = chain.request()
+    val token = engineSettings.googleCloudProxyToken
+    val request = if (token.isNotEmpty()) {
+        original.newBuilder().header("X-Proxy-Token", token).build()
     } else {
         original
     }
@@ -179,6 +197,45 @@ val audioModule = module {
     }
     single<TtsEngine>(piper) { PiperTtsEngine(androidContext(), get()) }
 
+    // --- Google Cloud (через google-cloud-proxy на том же VPS, см. GoogleCloudApiService/Config) ---
+    // Тот же паттерн host-override + Basic Auth, что и у остальных, плюс X-Proxy-Token поверх.
+    single {
+        val engineSettings = get<EngineSettings>()
+        Retrofit.Builder()
+            .baseUrl(GoogleCloudConfig.BASE_URL)
+            .client(
+                OkHttpClient.Builder()
+                    .connectTimeout(10, TimeUnit.SECONDS)
+                    .readTimeout(120, TimeUnit.SECONDS)
+                    .addInterceptor { chain ->
+                        val original = chain.request()
+                        val override = engineSettings.googleCloudBaseUrl.toHttpUrlOrNull()
+                        val request = if (override != null) {
+                            original.newBuilder()
+                                .url(
+                                    original.url.newBuilder()
+                                        .scheme(override.scheme)
+                                        .host(override.host)
+                                        .port(override.port)
+                                        .build(),
+                                )
+                                .build()
+                        } else {
+                            original
+                        }
+                        chain.proceed(request)
+                    }
+                    .addInterceptor(basicAuthInterceptor(engineSettings))
+                    .addInterceptor(proxyTokenInterceptor(engineSettings))
+                    .build(),
+            )
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(GoogleCloudApiService::class.java)
+    }
+    single<SttEngine>(googleCloud) { GoogleCloudSttEngine(androidContext(), get(), get()) }
+    single<TtsEngine>(googleCloud) { GoogleCloudTtsEngine(androidContext(), get()) }
+
     // --- Языковой роутинг (ky-* -> AkylAI, остальное -> Whisper/системный TTS) ---
     single<SttEngine>(languageAware) {
         LanguageAwareSttEngine(whisperEngine = get(whisper), akylAiEngine = get(akylai))
@@ -200,6 +257,7 @@ val audioModule = module {
             whisperEngine = get(whisper),
             akylAiEngine = get(akylai),
             languageAwareEngine = get(languageAware),
+            googleCloudEngine = get(googleCloud),
         )
     }
     single<TtsEngine> {
@@ -210,6 +268,7 @@ val audioModule = module {
             piperEngine = get(piper),
             languageAwareEngine = get(languageAware),
             piperAkylAiEngine = get(languageAwarePiper),
+            googleCloudEngine = get(googleCloud),
         )
     }
 }

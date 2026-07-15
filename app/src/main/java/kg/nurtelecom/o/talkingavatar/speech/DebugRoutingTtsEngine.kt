@@ -12,6 +12,7 @@ class DebugRoutingTtsEngine(
     private val piperEngine: TtsEngine,
     private val languageAwareEngine: TtsEngine,
     private val piperAkylAiEngine: TtsEngine,
+    private val googleCloudEngine: TtsEngine,
 ) : TtsEngine {
 
     private var activeEngine: TtsEngine? = null
@@ -28,6 +29,7 @@ class DebugRoutingTtsEngine(
             TtsEngineChoice.AKYLAI -> akylAiEngine
             TtsEngineChoice.PIPER -> piperEngine
             TtsEngineChoice.PIPER_AKYLAI -> piperAkylAiEngine
+            TtsEngineChoice.GOOGLE_CLOUD -> googleCloudEngine
             TtsEngineChoice.AUTO -> languageAwareEngine
         }
         Log.d(TAG, "TTS: choice=${settings.ttsChoice} language=$language -> ${engine::class.simpleName}")

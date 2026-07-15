@@ -38,6 +38,7 @@ private fun sttChoiceLabel(choice: SttEngineChoice) = when (choice) {
     SttEngineChoice.SYSTEM -> "Системный Android (SpeechRecognizer)"
     SttEngineChoice.WHISPER -> "Whisper (cloud)"
     SttEngineChoice.AKYLAI -> "AkylAI-STT"
+    SttEngineChoice.GOOGLE_CLOUD -> "Google Cloud STT"
 }
 
 private fun ttsChoiceLabel(choice: TtsEngineChoice) = when (choice) {
@@ -46,6 +47,7 @@ private fun ttsChoiceLabel(choice: TtsEngineChoice) = when (choice) {
     TtsEngineChoice.AKYLAI -> "AkylAI-TTS-mini"
     TtsEngineChoice.PIPER -> "Piper TTS"
     TtsEngineChoice.PIPER_AKYLAI -> "Piper + AkylAI (по языку: ky → AkylAI, остальное → Piper)"
+    TtsEngineChoice.GOOGLE_CLOUD -> "Google Cloud TTS (ky не поддерживается)"
 }
 
 // Debug-экран для пилота: выбор языка и ручной оверрайд STT/TTS-движка для тестирования
@@ -61,6 +63,9 @@ fun SettingsScreen(onStart: () -> Unit) {
     var akylAiBaseUrl by remember { mutableStateOf(engineSettings.akylAiBaseUrl) }
     var whisperBaseUrl by remember { mutableStateOf(engineSettings.whisperBaseUrl) }
     var piperBaseUrl by remember { mutableStateOf(engineSettings.piperBaseUrl) }
+    var googleCloudBaseUrl by remember { mutableStateOf(engineSettings.googleCloudBaseUrl) }
+    var googleCloudProxyToken by remember { mutableStateOf(engineSettings.googleCloudProxyToken) }
+    var googleCloudAltLanguages by remember { mutableStateOf(engineSettings.googleCloudAltLanguages) }
 
     Column(
         modifier = Modifier
@@ -154,6 +159,37 @@ fun SettingsScreen(onStart: () -> Unit) {
             singleLine = true,
         )
 
+        Spacer(Modifier.height(16.dp))
+        Text("Адрес Google Cloud proxy", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "https://138.16.155.105/google-cloud-proxy/ (или свой хост для теста)",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        OutlinedTextField(
+            value = googleCloudBaseUrl,
+            onValueChange = { googleCloudBaseUrl = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+
+        Spacer(Modifier.height(16.dp))
+        Text("X-Proxy-Token (google-cloud-proxy)", style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(
+            value = googleCloudProxyToken,
+            onValueChange = { googleCloudProxyToken = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+
+        Spacer(Modifier.height(16.dp))
+        Text("Google Cloud STT: alt-языки (через запятую)", style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(
+            value = googleCloudAltLanguages,
+            onValueChange = { googleCloudAltLanguages = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+
         Spacer(Modifier.height(24.dp))
         Button(
             modifier = Modifier.fillMaxWidth(),
@@ -172,6 +208,12 @@ fun SettingsScreen(onStart: () -> Unit) {
                     .trim()
                     .let { if (it.startsWith("http://") || it.startsWith("https://")) it else "http://$it" }
                     .let { if (it.endsWith("/")) it else "$it/" }
+                engineSettings.googleCloudBaseUrl = googleCloudBaseUrl
+                    .trim()
+                    .let { if (it.startsWith("http://") || it.startsWith("https://")) it else "http://$it" }
+                    .let { if (it.endsWith("/")) it else "$it/" }
+                engineSettings.googleCloudProxyToken = googleCloudProxyToken.trim()
+                engineSettings.googleCloudAltLanguages = googleCloudAltLanguages.trim()
                 mainViewModel.setInitialLanguage(selectedLanguage)
                 onStart()
             },

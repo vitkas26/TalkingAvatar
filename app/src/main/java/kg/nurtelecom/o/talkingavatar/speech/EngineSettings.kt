@@ -49,6 +49,13 @@ class EngineSettings {
     // voiceName не шлём, прокси сам подставляет Chirp3-HD-Aoede по gender.
     var googleCloudTtsTier: String = "chirp3hd"
 
+    // VAD (определение конца фразы по паузе) — общий для Whisper/AkylAI/GoogleCloud STT, см.
+    // speech/vad/SilenceTracker.kt. Порог в дБ ещё не откалиброван под шумный ТРЦ (открытый
+    // вопрос, ждём вендора микрофона) — настраиваемый с экрана настроек, не хардкожен намертво.
+    var vadSilenceThresholdDb: Double = -40.0
+    var vadSilenceDurationMs: Long = 4000L // бизнес-требование 3-5 сек, дефолт — середина диапазона
+    var vadMaxRecordingMs: Long = 18_000L // safety net, не основной механизм остановки
+
     // Basic Auth для тестового VPS-стенда за nginx (30 дней, не продакшен-секрет).
     // Читается BasicAuthInterceptor в AudioModule на каждый запрос, как и base URL выше.
     var basicAuthUser: String = "admin"

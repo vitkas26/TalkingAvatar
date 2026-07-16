@@ -120,7 +120,7 @@ val audioModule = module {
             .build()
             .create(WhisperApiService::class.java)
     }
-    single<SttEngine>(whisper) { WhisperSttEngine(androidContext(), get()) }
+    single<SttEngine>(whisper) { WhisperSttEngine(androidContext(), get(), get()) }
 
     // --- AkylAI (локальный HTTP-сервис вокруг AkylAI-STT/AkylAI-TTS-mini, см. AkylAiConfig) ---
     // baseUrl(AkylAiConfig.BASE_URL) ниже — только структурная заглушка для Retrofit (ему нужен
@@ -159,7 +159,7 @@ val audioModule = module {
             .build()
             .create(AkylAiApiService::class.java)
     }
-    single<SttEngine>(akylai) { AkylAiSttEngine(androidContext(), get()) }
+    single<SttEngine>(akylai) { AkylAiSttEngine(androidContext(), get(), get()) }
     single<TtsEngine>(akylai) { AkylAiTtsEngine(androidContext(), get()) }
 
     // --- Piper (локальный TTS-сервис, см. PiperApiService/PiperConfig) — тот же паттерн ---

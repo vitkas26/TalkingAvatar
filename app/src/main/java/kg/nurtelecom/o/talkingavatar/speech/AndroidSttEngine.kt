@@ -16,7 +16,7 @@ class AndroidSttEngine(private val context: Context) : SttEngine {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
-    private var onResultCallback: ((String) -> Unit)? = null
+    private var onResultCallback: ((String, String?) -> Unit)? = null
     private var onErrorCallback: ((Throwable) -> Unit)? = null
     private var onProcessingStartedCallback: (() -> Unit)? = null
 
@@ -27,7 +27,7 @@ class AndroidSttEngine(private val context: Context) : SttEngine {
             val all = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             val text = all?.firstOrNull()
             Log.d(TAG, "onResults all=$all picked=$text")
-            if (text != null) onResultCallback?.invoke(text) else onErrorCallback?.invoke(Exception("Речь не распознана"))
+            if (text != null) onResultCallback?.invoke(text, null) else onErrorCallback?.invoke(Exception("Речь не распознана"))
         }
 
         override fun onError(error: Int) {
@@ -56,7 +56,7 @@ class AndroidSttEngine(private val context: Context) : SttEngine {
     override fun startListening(
         language: String,
         onProcessingStarted: () -> Unit,
-        onResult: (String) -> Unit,
+        onResult: (String, String?) -> Unit,
         onError: (Throwable) -> Unit,
     ) {
         mainHandler.post { startListeningOnMainThread(language, onProcessingStarted, onResult, onError) }
@@ -65,7 +65,7 @@ class AndroidSttEngine(private val context: Context) : SttEngine {
     private fun startListeningOnMainThread(
         language: String,
         onProcessingStarted: () -> Unit,
-        onResult: (String) -> Unit,
+        onResult: (String, String?) -> Unit,
         onError: (Throwable) -> Unit,
     ) {
         onResultCallback = onResult

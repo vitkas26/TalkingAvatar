@@ -22,7 +22,7 @@ class DebugRoutingSttEngine(
     override fun startListening(
         language: String,
         onProcessingStarted: () -> Unit,
-        onResult: (String) -> Unit,
+        onResult: (String, String?) -> Unit,
         onError: (Throwable) -> Unit,
     ) {
         val engine = when (settings.sttChoice) {

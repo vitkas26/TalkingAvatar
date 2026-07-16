@@ -70,6 +70,9 @@ fun SettingsScreen(onStart: () -> Unit) {
     var googleCloudAltLanguages by remember { mutableStateOf(engineSettings.googleCloudAltLanguages) }
     var googleCloudApiVersion by remember { mutableStateOf(engineSettings.googleCloudApiVersion) }
     var googleCloudTtsTier by remember { mutableStateOf(engineSettings.googleCloudTtsTier) }
+    var vadSilenceThresholdDb by remember { mutableStateOf(engineSettings.vadSilenceThresholdDb.toString()) }
+    var vadSilenceDurationMs by remember { mutableStateOf(engineSettings.vadSilenceDurationMs.toString()) }
+    var vadMaxRecordingMs by remember { mutableStateOf(engineSettings.vadMaxRecordingMs.toString()) }
 
     Column(
         modifier = Modifier
@@ -236,6 +239,39 @@ fun SettingsScreen(onStart: () -> Unit) {
             }
         }
 
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(16.dp))
+
+        Text("VAD: конец фразы по паузе (debug)", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Порог в дБ не откалиброван под шумный ТРЦ — тюнить здесь. Общий для Whisper/AkylAI/Google Cloud STT",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text("Порог тишины, дБFS (отрицательное число, напр. -40)", style = MaterialTheme.typography.bodySmall)
+        OutlinedTextField(
+            value = vadSilenceThresholdDb,
+            onValueChange = { vadSilenceThresholdDb = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text("Длительность тишины до остановки, мс (бизнес-треб. 3000-5000)", style = MaterialTheme.typography.bodySmall)
+        OutlinedTextField(
+            value = vadSilenceDurationMs,
+            onValueChange = { vadSilenceDurationMs = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text("Максимальная длительность записи, мс (safety net)", style = MaterialTheme.typography.bodySmall)
+        OutlinedTextField(
+            value = vadMaxRecordingMs,
+            onValueChange = { vadMaxRecordingMs = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+
         Spacer(Modifier.height(24.dp))
         Button(
             modifier = Modifier.fillMaxWidth(),
@@ -262,6 +298,12 @@ fun SettingsScreen(onStart: () -> Unit) {
                 engineSettings.googleCloudAltLanguages = googleCloudAltLanguages.trim()
                 engineSettings.googleCloudApiVersion = googleCloudApiVersion
                 engineSettings.googleCloudTtsTier = googleCloudTtsTier
+                engineSettings.vadSilenceThresholdDb = vadSilenceThresholdDb.trim().toDoubleOrNull()
+                    ?: engineSettings.vadSilenceThresholdDb
+                engineSettings.vadSilenceDurationMs = vadSilenceDurationMs.trim().toLongOrNull()
+                    ?: engineSettings.vadSilenceDurationMs
+                engineSettings.vadMaxRecordingMs = vadMaxRecordingMs.trim().toLongOrNull()
+                    ?: engineSettings.vadMaxRecordingMs
                 mainViewModel.setInitialLanguage(selectedLanguage)
                 onStart()
             },

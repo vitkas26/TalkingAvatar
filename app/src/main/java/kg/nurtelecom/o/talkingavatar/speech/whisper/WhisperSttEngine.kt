@@ -5,7 +5,12 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
+import kg.nurtelecom.o.talkingavatar.speech.EngineSettings
 import kg.nurtelecom.o.talkingavatar.speech.SttEngine
+import kg.nurtelecom.o.talkingavatar.speech.vad.SilenceTracker
+import kg.nurtelecom.o.talkingavatar.speech.vad.VadConfig
+import kg.nurtelecom.o.talkingavatar.speech.vad.VadDecision
+import kg.nurtelecom.o.talkingavatar.speech.vad.pcm16BytesDbfs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -20,15 +25,12 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 private const val TAG = "WhisperSttEngine"
-
-// Нет VAD (в отличие от SpeechRecognizer) — пишем фиксированную длительность и шлём в Whisper.
-// Для пилота достаточно; при желании можно заменить на запись до stopListening().
-private const val RECORD_DURATION_MS = 5_000L
 private const val SAMPLE_RATE = 16_000
 
 class WhisperSttEngine(
     private val context: Context,
     private val apiService: WhisperApiService,
+    private val engineSettings: EngineSettings,
 ) : SttEngine {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -38,7 +40,7 @@ class WhisperSttEngine(
     override fun startListening(
         language: String,
         onProcessingStarted: () -> Unit,
-        onResult: (String) -> Unit,
+        onResult: (String, String?) -> Unit,
         onError: (Throwable) -> Unit,
     ) {
         val audioFile = File(context.cacheDir, "whisper_input.wav")
@@ -78,13 +80,29 @@ class WhisperSttEngine(
         recordingJob = scope.launch {
             val pcm = ByteArrayOutputStream()
             val readBuffer = ByteArray(minBufferSize)
+            val silenceTracker = SilenceTracker(
+                VadConfig(
+                    silenceThresholdDb = engineSettings.vadSilenceThresholdDb,
+                    silenceDurationMs = engineSettings.vadSilenceDurationMs,
+                    maxRecordingMs = engineSettings.vadMaxRecordingMs,
+                ),
+            )
             val startTime = System.currentTimeMillis()
-            while (System.currentTimeMillis() - startTime < RECORD_DURATION_MS) {
+            while (true) {
                 val read = newRecord.read(readBuffer, 0, readBuffer.size)
                 if (read > 0) pcm.write(readBuffer, 0, read)
+                val elapsed = System.currentTimeMillis() - startTime
+                val levelDb = pcm16BytesDbfs(readBuffer, read)
+                if (silenceTracker.onSample(levelDb, elapsed) != VadDecision.Continue) break
             }
             stopRecorder()
             withContext(Dispatchers.Main) { onProcessingStarted() }
+
+            if (!silenceTracker.hasDetectedSpeech) {
+                Log.d(TAG, "VAD: тишина, не отправляем на сервер")
+                withContext(Dispatchers.Main) { onError(Exception("Речь не распознана")) }
+                return@launch
+            }
 
             try {
                 writeWavFile(audioFile, pcm.toByteArray(), SAMPLE_RATE)
@@ -101,7 +119,7 @@ class WhisperSttEngine(
                 val response = apiService.transcribe(filePart, languagePart)
                 val text = response.text
                 withContext(Dispatchers.Main) {
-                    if (text.isNullOrBlank()) onError(Exception("Whisper: пустой результат")) else onResult(text)
+                    if (text.isNullOrBlank()) onError(Exception("Whisper: пустой результат")) else onResult(text, null)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "transcribe failed", e)

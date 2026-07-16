@@ -7,6 +7,10 @@ import android.media.MediaRecorder
 import android.util.Log
 import kg.nurtelecom.o.talkingavatar.speech.EngineSettings
 import kg.nurtelecom.o.talkingavatar.speech.SttEngine
+import kg.nurtelecom.o.talkingavatar.speech.vad.SilenceTracker
+import kg.nurtelecom.o.talkingavatar.speech.vad.VadConfig
+import kg.nurtelecom.o.talkingavatar.speech.vad.VadDecision
+import kg.nurtelecom.o.talkingavatar.speech.vad.pcm16BytesDbfs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,9 +23,6 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 private const val TAG = "GoogleCloudSttEngine"
-
-// Нет VAD, как и в WhisperSttEngine — пишем фиксированную длительность.
-private const val RECORD_DURATION_MS = 5_000L
 private const val SAMPLE_RATE = 16_000
 
 // Дефолтные alt-языки для Google Speech-to-text (alternativeLanguageCodes, лимит Google — 3
@@ -56,7 +57,7 @@ class GoogleCloudSttEngine(
     override fun startListening(
         language: String,
         onProcessingStarted: () -> Unit,
-        onResult: (String) -> Unit,
+        onResult: (String, String?) -> Unit,
         onError: (Throwable) -> Unit,
     ) {
         val minBufferSize = AudioRecord.getMinBufferSize(
@@ -94,13 +95,29 @@ class GoogleCloudSttEngine(
         recordingJob = scope.launch {
             val pcm = ByteArrayOutputStream()
             val readBuffer = ByteArray(minBufferSize)
+            val silenceTracker = SilenceTracker(
+                VadConfig(
+                    silenceThresholdDb = engineSettings.vadSilenceThresholdDb,
+                    silenceDurationMs = engineSettings.vadSilenceDurationMs,
+                    maxRecordingMs = engineSettings.vadMaxRecordingMs,
+                ),
+            )
             val startTime = System.currentTimeMillis()
-            while (System.currentTimeMillis() - startTime < RECORD_DURATION_MS) {
+            while (true) {
                 val read = newRecord.read(readBuffer, 0, readBuffer.size)
                 if (read > 0) pcm.write(readBuffer, 0, read)
+                val elapsed = System.currentTimeMillis() - startTime
+                val levelDb = pcm16BytesDbfs(readBuffer, read)
+                if (silenceTracker.onSample(levelDb, elapsed) != VadDecision.Continue) break
             }
             stopRecorder()
             withContext(Dispatchers.Main) { onProcessingStarted() }
+
+            if (!silenceTracker.hasDetectedSpeech) {
+                Log.d(TAG, "VAD: тишина, не отправляем на сервер")
+                withContext(Dispatchers.Main) { onError(Exception("Речь не распознана")) }
+                return@launch
+            }
 
             try {
                 val audioFile = File(context.cacheDir, "googlecloud_input.wav")
@@ -116,7 +133,11 @@ class GoogleCloudSttEngine(
                 )
                 val text = response.transcript
                 withContext(Dispatchers.Main) {
-                    if (text.isNullOrBlank()) onError(Exception("Google Cloud STT: пустой результат")) else onResult(text)
+                    if (text.isNullOrBlank()) {
+                        onError(Exception("Google Cloud STT: пустой результат"))
+                    } else {
+                        onResult(text, response.languageDetected)
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "transcribe failed", e)

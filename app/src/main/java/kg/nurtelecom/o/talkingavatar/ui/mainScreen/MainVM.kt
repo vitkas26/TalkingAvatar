@@ -30,6 +30,15 @@ sealed class MainSideEffect {
     data class ShowError(val message: String) : MainSideEffect()
 }
 
+// STT-движки (сейчас только google-cloud-proxy) могут вернуть код в другом регистре, без
+// региона, или с гугловским квирком ("cmn" вместо "zh" для китайского — см. GoogleCloudTtsEngine
+// wavenetVoiceByLanguage) — нормализуем к Language.code проекта. Языки вне списка из 6
+// поддерживаемых — null, вызывающий не обновляет state.selectedLanguage этим значением.
+private fun normalizeDetectedLanguage(raw: String): Language? {
+    val primary = raw.substringBefore("-").lowercase().let { if (it == "cmn") "zh" else it }
+    return Language.entries.firstOrNull { it.code.substringBefore("-").lowercase() == primary }
+}
+
 class MainViewModel(
     private val apiService: ApiService,
     private val sttEngine: SttEngine,
@@ -98,7 +107,7 @@ class MainViewModel(
         sttEngine.startListening(
             language = state.selectedLanguage.code,
             onProcessingStarted = { onSttProcessingStarted() },
-            onResult = { text -> onSpeechResult(text) },
+            onResult = { text, detectedLanguage -> onSpeechResult(text, detectedLanguage) },
             onError = { error -> onSttError(error) },
         )
     }
@@ -110,7 +119,17 @@ class MainViewModel(
         reduce { state.copy(isListening = false, isPreparing = true) }
     }
 
-    fun onSpeechResult(question: String) = intent {
+    fun onSpeechResult(question: String, detectedLanguageCode: String? = null) = intent {
+        // Автообновление языка сессии по STT-детекту (сейчас только google-cloud-proxy шлёт
+        // languageDetected — Android/Whisper/AkylAI всегда null). Ручной выбор (selectLanguage/
+        // setInitialLanguage) остаётся единственным другим писателем selectedLanguage и всегда
+        // выигрывает на практике: этот блок срабатывает только внутри реального STT-запроса.
+        val detectedLanguage = detectedLanguageCode
+            ?.takeIf { it.isNotBlank() }
+            ?.let { normalizeDetectedLanguage(it) }
+        if (detectedLanguage != null && detectedLanguage != state.selectedLanguage) {
+            reduce { state.copy(selectedLanguage = detectedLanguage) }
+        }
         reduce { state.copy(isListening = false, question = question) }
         try {
             val response = apiService.askQuestion(QuestionRequest(question, state.selectedLanguage.code))

@@ -248,10 +248,13 @@ val audioModule = module {
     single<TtsEngine>(languageAwarePiper) {
         LanguageAwareTtsEngine(fallbackEngine = get(piper), akylAiTtsEngine = get(akylai))
     }
-    // Комбо "Google Cloud + AkylAI": ky-* -> AkylAI, остальное -> Google Cloud вместо Whisper/Piper.
-    single<SttEngine>(languageAwareGoogleCloud) {
-        LanguageAwareSttEngine(whisperEngine = get(googleCloud), akylAiEngine = get(akylai))
-    }
+    // Комбо "Google Cloud + AkylAI". TTS: ky-* -> AkylAI, остальное -> Google Cloud (как обычно).
+    // STT: ВСЕГДА Google Cloud, без языкового роутинга — иначе самозамыкание: Google STT детектит
+    // ky-KG -> language сессии становится ky-KG -> LanguageAwareSttEngine перекидывает STT на
+    // akylai -> akylai не умеет auto-detect и никогда не шлёт languageDetected -> язык сессии
+    // навсегда застревает на ky-KG, разговор больше не может выйти из akylai-STT. Google STT и так
+    // корректно распознаёт кыргызский сам (в отличие от Google TTS, где голосов ky-KG просто нет).
+    single<SttEngine>(languageAwareGoogleCloud) { get(googleCloud) }
     single<TtsEngine>(languageAwareGoogleCloud) {
         LanguageAwareTtsEngine(fallbackEngine = get(googleCloud), akylAiTtsEngine = get(akylai))
     }

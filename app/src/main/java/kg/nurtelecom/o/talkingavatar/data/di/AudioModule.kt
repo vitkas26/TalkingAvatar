@@ -235,7 +235,7 @@ val audioModule = module {
             .create(GoogleCloudApiService::class.java)
     }
     single<SttEngine>(googleCloud) { GoogleCloudSttEngine(androidContext(), get(), get()) }
-    single<TtsEngine>(googleCloud) { GoogleCloudTtsEngine(androidContext(), get()) }
+    single<TtsEngine>(googleCloud) { GoogleCloudTtsEngine(androidContext(), get(), get()) }
 
     // --- Языковой роутинг (ky-* -> AkylAI, остальное -> Whisper/системный TTS) ---
     single<SttEngine>(languageAware) {

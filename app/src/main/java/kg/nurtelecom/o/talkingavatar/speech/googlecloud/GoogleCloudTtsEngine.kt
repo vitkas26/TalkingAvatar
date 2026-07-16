@@ -3,6 +3,7 @@ package kg.nurtelecom.o.talkingavatar.speech.googlecloud
 import android.content.Context
 import android.media.MediaPlayer
 import android.util.Log
+import kg.nurtelecom.o.talkingavatar.speech.EngineSettings
 import kg.nurtelecom.o.talkingavatar.speech.TtsEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -10,9 +11,25 @@ import java.io.File
 
 private const val TAG = "GoogleCloudTtsEngine"
 
+// Debug WaveNet-оверрайд (см. EngineSettings.googleCloudTtsTier) — на голос из этой мапы, а не
+// gender-based авто-выбор Chirp3-HD на проксе. googleLanguageCode может отличаться от ключа
+// (session-языка): Google регистрирует китайские голоса под "cmn-CN", не "zh-CN" — прокси не
+// ремапит languageCode/voiceName (TtsRoutes.kt шлёт их as-is в Google), так что явный mismatch
+// ("zh-CN" + "cmn-CN-Wavenet-A") — гарантированный 400 от Google.
+private data class WavenetVoice(val googleLanguageCode: String, val voiceName: String)
+
+private val wavenetVoiceByLanguage: Map<String, WavenetVoice> = mapOf(
+    "ru-RU" to WavenetVoice(googleLanguageCode = "ru-RU", voiceName = "ru-RU-Wavenet-A"),
+    "en-US" to WavenetVoice(googleLanguageCode = "en-US", voiceName = "en-US-Wavenet-C"),
+    "de-DE" to WavenetVoice(googleLanguageCode = "de-DE", voiceName = "de-DE-Wavenet-G"),
+    "tr-TR" to WavenetVoice(googleLanguageCode = "tr-TR", voiceName = "tr-TR-Wavenet-A"),
+    "zh-CN" to WavenetVoice(googleLanguageCode = "cmn-CN", voiceName = "cmn-CN-Wavenet-A"),
+)
+
 class GoogleCloudTtsEngine(
     private val context: Context,
     private val apiService: GoogleCloudApiService,
+    private val engineSettings: EngineSettings,
 ) : TtsEngine {
 
     private var mediaPlayer: MediaPlayer? = null
@@ -32,7 +49,18 @@ class GoogleCloudTtsEngine(
         }
         try {
             val audioFile = File(context.cacheDir, "googlecloud_output.ogg")
-            val body = apiService.synthesize(GoogleCloudTtsRequest(text = text, languageCode = language))
+            val wavenetVoice = wavenetVoiceByLanguage[language]
+                .takeIf { engineSettings.googleCloudTtsTier == "wavenet" }
+            val request = if (wavenetVoice != null) {
+                GoogleCloudTtsRequest(
+                    text = text,
+                    languageCode = wavenetVoice.googleLanguageCode,
+                    voiceName = wavenetVoice.voiceName,
+                )
+            } else {
+                GoogleCloudTtsRequest(text = text, languageCode = language)
+            }
+            val body = apiService.synthesize(request)
             withContext(Dispatchers.IO) {
                 body.byteStream().use { input ->
                     audioFile.outputStream().use { output -> input.copyTo(output) }

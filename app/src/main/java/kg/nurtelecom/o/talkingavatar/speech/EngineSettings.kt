@@ -44,6 +44,11 @@ class EngineSettings {
     // точности — не постоянная архитектурная фича. v2 игнорирует lang/alt (полный автодетект).
     var googleCloudApiVersion: String = "v1"
 
+    // Debug A/B-переключатель голоса Google Cloud TTS ("chirp3hd"/"wavenet") — живое демо для
+    // заказчика, выбор голоса на слух, не постоянная фича. chirp3hd (дефолт) не меняет поведение:
+    // voiceName не шлём, прокси сам подставляет Chirp3-HD-Aoede по gender.
+    var googleCloudTtsTier: String = "chirp3hd"
+
     // Basic Auth для тестового VPS-стенда за nginx (30 дней, не продакшен-секрет).
     // Читается BasicAuthInterceptor в AudioModule на каждый запрос, как и base URL выше.
     var basicAuthUser: String = "admin"

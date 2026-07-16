@@ -69,6 +69,7 @@ fun SettingsScreen(onStart: () -> Unit) {
     var googleCloudProxyToken by remember { mutableStateOf(engineSettings.googleCloudProxyToken) }
     var googleCloudAltLanguages by remember { mutableStateOf(engineSettings.googleCloudAltLanguages) }
     var googleCloudApiVersion by remember { mutableStateOf(engineSettings.googleCloudApiVersion) }
+    var googleCloudTtsTier by remember { mutableStateOf(engineSettings.googleCloudTtsTier) }
 
     Column(
         modifier = Modifier
@@ -216,6 +217,25 @@ fun SettingsScreen(onStart: () -> Unit) {
             }
         }
 
+        Spacer(Modifier.height(16.dp))
+        Text("Google Cloud TTS: голос (A/B демо, временно)", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "wavenet не покрывает ky-KG (там всегда AkylAI)",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        listOf("chirp3hd" to "Chirp3-HD (дефолт)", "wavenet" to "WaveNet").forEach { (tier, label) ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(
+                    selected = googleCloudTtsTier == tier,
+                    onClick = { googleCloudTtsTier = tier },
+                )
+                Text(label)
+            }
+        }
+
         Spacer(Modifier.height(24.dp))
         Button(
             modifier = Modifier.fillMaxWidth(),
@@ -241,6 +261,7 @@ fun SettingsScreen(onStart: () -> Unit) {
                 engineSettings.googleCloudProxyToken = googleCloudProxyToken.trim()
                 engineSettings.googleCloudAltLanguages = googleCloudAltLanguages.trim()
                 engineSettings.googleCloudApiVersion = googleCloudApiVersion
+                engineSettings.googleCloudTtsTier = googleCloudTtsTier
                 mainViewModel.setInitialLanguage(selectedLanguage)
                 onStart()
             },

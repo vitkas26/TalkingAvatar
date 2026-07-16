@@ -14,8 +14,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.ByteArrayOutputStream
+import java.io.File
 
 private const val TAG = "GoogleCloudSttEngine"
 
@@ -38,9 +39,10 @@ val defaultAltLanguagesByPrimary: Map<String, String> = mapOf(
     "de-DE" to "ru-RU,ky-KG,en-US",
 )
 
-// В отличие от Whisper/AkylAI, google-cloud-proxy ждёт сырые PCM-байты без WAV-заголовка
-// (LINEAR16/16kHz/mono, Content-Type: application/octet-stream) — конфиг аудио передаётся
-// явно через query-параметры, а не через файл-контейнер.
+// Шлём WAV (заголовок + LINEAR16/16kHz/mono), как и WhisperSttEngine — V1-провайдер прокси
+// прекрасно работает с явным заголовком (проверено вручную curl'ом), а V2 (autoDecodingConfig)
+// без заголовка вообще не может определить контейнер и падает с 400 "unsupported encoding".
+// Раньше слали голый PCM без заголовка — работало только под V1, ломало V2.
 class GoogleCloudSttEngine(
     private val context: Context,
     private val apiService: GoogleCloudApiService,
@@ -101,7 +103,9 @@ class GoogleCloudSttEngine(
             withContext(Dispatchers.Main) { onProcessingStarted() }
 
             try {
-                val body = pcm.toByteArray().toRequestBody("application/octet-stream".toMediaType())
+                val audioFile = File(context.cacheDir, "googlecloud_input.wav")
+                writeWavFile(audioFile, pcm.toByteArray(), SAMPLE_RATE)
+                val body = audioFile.asRequestBody("audio/wav".toMediaType())
                 val alt = engineSettings.googleCloudAltLanguages.takeIf { it.isNotBlank() }
                     ?: defaultAltLanguagesByPrimary[language]
                 val response = apiService.transcribe(
@@ -136,3 +140,42 @@ class GoogleCloudSttEngine(
         audioRecord = null
     }
 }
+
+// AudioRecord отдаёт сырой PCM без контейнера — оборачиваем в canonical 44-байтный WAV-заголовок
+// (mono/16-bit/16kHz), как в WhisperSttEngine.writeWavFile.
+private fun writeWavFile(file: File, pcmData: ByteArray, sampleRate: Int) {
+    val channels = 1
+    val bitsPerSample = 16
+    val byteRate = sampleRate * channels * bitsPerSample / 8
+    val blockAlign = channels * bitsPerSample / 8
+    val dataSize = pcmData.size
+
+    file.outputStream().use { out ->
+        out.write("RIFF".toByteArray())
+        out.write(intToBytesLE(36 + dataSize))
+        out.write("WAVE".toByteArray())
+        out.write("fmt ".toByteArray())
+        out.write(intToBytesLE(16))
+        out.write(shortToBytesLE(1))
+        out.write(shortToBytesLE(channels))
+        out.write(intToBytesLE(sampleRate))
+        out.write(intToBytesLE(byteRate))
+        out.write(shortToBytesLE(blockAlign))
+        out.write(shortToBytesLE(bitsPerSample))
+        out.write("data".toByteArray())
+        out.write(intToBytesLE(dataSize))
+        out.write(pcmData)
+    }
+}
+
+private fun intToBytesLE(v: Int) = byteArrayOf(
+    (v and 0xff).toByte(),
+    ((v shr 8) and 0xff).toByte(),
+    ((v shr 16) and 0xff).toByte(),
+    ((v shr 24) and 0xff).toByte(),
+)
+
+private fun shortToBytesLE(v: Int) = byteArrayOf(
+    (v and 0xff).toByte(),
+    ((v shr 8) and 0xff).toByte(),
+)

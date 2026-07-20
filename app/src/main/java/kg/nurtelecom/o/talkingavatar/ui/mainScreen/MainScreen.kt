@@ -64,8 +64,7 @@ fun MainScreen() {
 
     val avatarState = when {
         state.isLanguageSheetOpen -> AvatarState.Idle
-        state.isListening -> AvatarState.Listening
-        state.isPreparing -> AvatarState.Processing
+        state.isListening || state.isPreparing -> AvatarState.Listening
         state.isSpeaking -> AvatarState.Speaking
         state.error != null -> AvatarState.Error
         state.showWelcome -> AvatarState.Welcome
@@ -73,7 +72,7 @@ fun MainScreen() {
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        avatarRenderer.Render(avatarState)
+        avatarRenderer.Render(avatarState, onCloseListening = { viewModel.cancelListening() })
 
         Column(
             modifier = Modifier
@@ -82,26 +81,28 @@ fun MainScreen() {
                 .padding(bottom = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Button(onClick = { viewModel.showLanguageSheet() }) {
-                Text("Выбрать язык")
-            }
+            if (avatarState != AvatarState.Listening) {
+                Button(onClick = { viewModel.showLanguageSheet() }) {
+                    Text("Выбрать язык")
+                }
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-            Button(onClick = {
-                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            },
-                enabled = !state.isPreparing && !state.isSpeaking) {
-                Text("Задать вопрос")
-            }
+                Button(onClick = {
+                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                },
+                    enabled = !state.isPreparing && !state.isSpeaking) {
+                    Text("Задать вопрос")
+                }
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-            Button(
-                onClick = { viewModel.stopSpeaking() },
-                enabled = state.isSpeaking
-            ) {
-                Text("Стоп")
+                Button(
+                    onClick = { viewModel.stopSpeaking() },
+                    enabled = state.isSpeaking
+                ) {
+                    Text("Стоп")
+                }
             }
 
             SnackbarHost(hostState = snackBarHostState)

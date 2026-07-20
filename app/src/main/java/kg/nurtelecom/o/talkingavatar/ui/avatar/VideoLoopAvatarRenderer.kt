@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,11 +24,6 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
-import com.airbnb.lottie.compose.LottieAnimation
-import com.airbnb.lottie.compose.LottieCompositionSpec
-import com.airbnb.lottie.compose.LottieConstants
-import com.airbnb.lottie.compose.animateLottieCompositionAsState
-import com.airbnb.lottie.compose.rememberLottieComposition
 import kg.nurtelecom.o.talkingavatar.statemachine.AvatarState
 import kg.nurtelecom.o.talkingavatar.ui.rotateFullScreen
 import kotlinx.coroutines.CoroutineScope
@@ -37,14 +31,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 private const val TAG = "VideoLoopAvatar"
-private const val PROCESSING_LOTTIE_ASSET = "avatar_processing.lottie"
 
 // Единственное место маппинга состояния на файл видео — добавлять/менять ассеты только здесь.
-// Processing сюда не входит: для него отдельная Lottie-ветка в Render() ниже.
 private val stateToVideoAsset = mapOf(
     AvatarState.Welcome to "avatar_welcome.mp4",
     AvatarState.Idle to "avatar_idle.mp4",
-    AvatarState.Listening to "avatar_listening.mp4",
     AvatarState.Speaking to "avatar_speaking.mp4",
     AvatarState.Error to "avatar_error.mp4",
 )
@@ -53,7 +44,6 @@ private val stateToPlaceholderColor = mapOf(
     AvatarState.Welcome to Color(0xFF00897B),
     AvatarState.Idle to Color(0xFF546E7A),
     AvatarState.Listening to Color(0xFF1E88E5),
-    AvatarState.Processing to Color(0xFFFB8C00),
     AvatarState.Speaking to Color(0xFF43A047),
     AvatarState.Error to Color(0xFFE53935),
     AvatarState.WebViewMode to Color(0xFF546E7A),
@@ -107,35 +97,11 @@ class VideoLoopAvatarRenderer @OptIn(UnstableApi::class) constructor
     }
 
     @Composable
-    override fun Render(state: AvatarState) {
+    override fun Render(state: AvatarState, onCloseListening: () -> Unit) {
         val context = LocalContext.current
 
-        if (state == AvatarState.Processing) {
-            val lottieExists = remember {
-                context.assets.list("")?.contains(PROCESSING_LOTTIE_ASSET) == true
-            }
-            if (lottieExists) {
-                val composition by rememberLottieComposition(LottieCompositionSpec.Asset(PROCESSING_LOTTIE_ASSET))
-                val progress by animateLottieCompositionAsState(
-                    composition,
-                    iterations = LottieConstants.IterateForever,
-                )
-                LottieAnimation(
-                    composition = composition,
-                    progress = { progress },
-                    modifier = Modifier.fillMaxSize(),
-                )
-                return
-            }
-            Log.d(TAG, "avatar state=$state -> asset '$PROCESSING_LOTTIE_ASSET' missing, showing placeholder")
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(stateToPlaceholderColor[state] ?: Color.Gray),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(text = state.name, color = Color.White)
-            }
+        if (state == AvatarState.Listening) {
+            ListeningStateContent(onClose = onCloseListening)
             return
         }
 

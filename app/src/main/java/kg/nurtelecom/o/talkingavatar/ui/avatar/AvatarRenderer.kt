@@ -5,5 +5,5 @@ import kg.nurtelecom.o.talkingavatar.statemachine.AvatarState
 
 interface AvatarRenderer {
     @Composable
-    fun Render(state: AvatarState)
+    fun Render(state: AvatarState, onCloseListening: () -> Unit = {})
 }

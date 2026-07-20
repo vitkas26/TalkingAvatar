@@ -157,6 +157,12 @@ class MainViewModel(
         reduce { state.copy(isSpeaking = false, isPreparing = false) }
     }
 
+    fun cancelListening() = intent {
+        sttEngine.stopListening()
+        reduce { state.copy(isListening = false) }
+        resetIdleTimer()
+    }
+
     private fun onSttError(error: Throwable) = intent {
         reduce { state.copy(isListening = false, isPreparing = false, error = error.message) }
         resetIdleTimer()

@@ -4,7 +4,6 @@ enum class AvatarState {
     Welcome,
     Idle,
     Listening,
-    Processing,
     Speaking,
     WebViewMode,
     Error,

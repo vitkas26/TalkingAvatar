@@ -1,9 +1,10 @@
 package kg.nurtelecom.o.talkingavatar.ui.avatar
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import kg.nurtelecom.o.talkingavatar.statemachine.AvatarState
 
 interface AvatarRenderer {
     @Composable
-    fun Render(state: AvatarState, onCloseListening: () -> Unit = {})
+    fun Render(state: AvatarState, modifier: Modifier = Modifier)
 }

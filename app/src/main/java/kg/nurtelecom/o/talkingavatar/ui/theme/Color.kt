@@ -12,3 +12,4 @@ val Pink40 = Color(0xFF7D5260)
 
 val ListeningBackground = Color(0xFFEDEDED)
 val ListeningStatusPink = Color(0xFFF0047F)
+val HomeGreetingGray = Color(0xFF4A4A4A)

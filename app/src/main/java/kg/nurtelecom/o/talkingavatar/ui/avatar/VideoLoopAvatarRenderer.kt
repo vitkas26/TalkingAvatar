@@ -25,7 +25,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
 import kg.nurtelecom.o.talkingavatar.statemachine.AvatarState
-import kg.nurtelecom.o.talkingavatar.ui.rotateFullScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -38,6 +37,7 @@ private val stateToVideoAsset = mapOf(
     AvatarState.Idle to "avatar_idle.mp4",
     AvatarState.Speaking to "avatar_speaking.mp4",
     AvatarState.Error to "avatar_error.mp4",
+    AvatarState.Listening to "avatar_listening.mp4",
 )
 
 private val stateToPlaceholderColor = mapOf(
@@ -97,13 +97,8 @@ class VideoLoopAvatarRenderer @OptIn(UnstableApi::class) constructor
     }
 
     @Composable
-    override fun Render(state: AvatarState, onCloseListening: () -> Unit) {
+    override fun Render(state: AvatarState, modifier: Modifier) {
         val context = LocalContext.current
-
-        if (state == AvatarState.Listening) {
-            ListeningStateContent(onClose = onCloseListening)
-            return
-        }
 
         val assetName = remember(state) {
             val candidate = stateToVideoAsset[state]
@@ -123,7 +118,7 @@ class VideoLoopAvatarRenderer @OptIn(UnstableApi::class) constructor
             // ломает z-order/clipping с соседними composable, TextureView композится как
             // обычная View и этих проблем не имеет — для маленького зацикленного видео
             // разница в производительности не важна.
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = modifier) {
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),
                     factory = { ctx ->
@@ -151,9 +146,7 @@ class VideoLoopAvatarRenderer @OptIn(UnstableApi::class) constructor
             Log.d(TAG, "avatar state=$state -> asset '$assetName' missing, showing placeholder")
             // Заглушка: видео-файл под это состояние ещё не добавлен в assets.
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(stateToPlaceholderColor[state] ?: Color.Gray),
+                modifier = modifier.background(stateToPlaceholderColor[state] ?: Color.Gray),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(text = state.name, color = Color.White)

@@ -1,4 +1,4 @@
-package kg.nurtelecom.o.talkingavatar.ui
+package kg.nurtelecom.o.talkingavatar.ui.utils
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer

@@ -1,4 +1,4 @@
-package kg.nurtelecom.o.talkingavatar.speech
+package kg.nurtelecom.o.talkingavatar.data.speech
 
 import android.content.Context
 import android.content.Intent
@@ -9,6 +9,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
+import kg.nurtelecom.o.talkingavatar.domain.gateway.SttEngine
 
 private const val TAG = "AndroidSttEngine"
 

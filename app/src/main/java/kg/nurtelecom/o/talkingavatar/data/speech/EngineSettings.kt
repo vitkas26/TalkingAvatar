@@ -1,9 +1,9 @@
-package kg.nurtelecom.o.talkingavatar.speech
+package kg.nurtelecom.o.talkingavatar.data.speech
 
-import kg.nurtelecom.o.talkingavatar.speech.akylai.AkylAiConfig
-import kg.nurtelecom.o.talkingavatar.speech.googlecloud.GoogleCloudConfig
-import kg.nurtelecom.o.talkingavatar.speech.piper.PiperConfig
-import kg.nurtelecom.o.talkingavatar.speech.whisper.WhisperConfig
+import kg.nurtelecom.o.talkingavatar.data.speech.akylai.AkylAiConfig
+import kg.nurtelecom.o.talkingavatar.data.speech.googlecloud.GoogleCloudConfig
+import kg.nurtelecom.o.talkingavatar.data.speech.piper.PiperConfig
+import kg.nurtelecom.o.talkingavatar.data.speech.whisper.WhisperConfig
 
 enum class SttEngineChoice { AUTO, SYSTEM, WHISPER, AKYLAI, GOOGLE_CLOUD, GOOGLE_CLOUD_PLUS_AKYLAI }
 enum class TtsEngineChoice { AUTO, SYSTEM, AKYLAI, PIPER, PIPER_AKYLAI, GOOGLE_CLOUD, GOOGLE_CLOUD_PLUS_AKYLAI }

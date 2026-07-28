@@ -1,4 +1,4 @@
-package kg.nurtelecom.o.talkingavatar.speech.whisper
+package kg.nurtelecom.o.talkingavatar.data.speech.whisper
 
 import okhttp3.MultipartBody
 import okhttp3.RequestBody

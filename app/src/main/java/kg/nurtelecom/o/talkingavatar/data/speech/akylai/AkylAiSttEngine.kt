@@ -1,14 +1,14 @@
-package kg.nurtelecom.o.talkingavatar.speech.akylai
+package kg.nurtelecom.o.talkingavatar.data.speech.akylai
 
 import android.content.Context
 import android.media.MediaRecorder
 import android.util.Log
-import kg.nurtelecom.o.talkingavatar.speech.EngineSettings
-import kg.nurtelecom.o.talkingavatar.speech.SttEngine
-import kg.nurtelecom.o.talkingavatar.speech.vad.SilenceTracker
-import kg.nurtelecom.o.talkingavatar.speech.vad.VadConfig
-import kg.nurtelecom.o.talkingavatar.speech.vad.VadDecision
-import kg.nurtelecom.o.talkingavatar.speech.vad.mediaRecorderAmplitudeDbfs
+import kg.nurtelecom.o.talkingavatar.data.speech.EngineSettings
+import kg.nurtelecom.o.talkingavatar.domain.gateway.SttEngine
+import kg.nurtelecom.o.talkingavatar.data.speech.vad.SilenceTracker
+import kg.nurtelecom.o.talkingavatar.data.speech.vad.VadConfig
+import kg.nurtelecom.o.talkingavatar.data.speech.vad.VadDecision
+import kg.nurtelecom.o.talkingavatar.data.speech.vad.mediaRecorderAmplitudeDbfs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

@@ -1,4 +1,4 @@
-package kg.nurtelecom.o.talkingavatar.speech.vad
+package kg.nurtelecom.o.talkingavatar.data.speech.vad
 
 import kotlin.math.log10
 import kotlin.math.sqrt

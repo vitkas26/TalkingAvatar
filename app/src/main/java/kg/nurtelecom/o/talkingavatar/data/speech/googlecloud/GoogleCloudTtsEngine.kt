@@ -1,10 +1,10 @@
-package kg.nurtelecom.o.talkingavatar.speech.googlecloud
+package kg.nurtelecom.o.talkingavatar.data.speech.googlecloud
 
 import android.content.Context
 import android.media.MediaPlayer
 import android.util.Log
-import kg.nurtelecom.o.talkingavatar.speech.EngineSettings
-import kg.nurtelecom.o.talkingavatar.speech.TtsEngine
+import kg.nurtelecom.o.talkingavatar.data.speech.EngineSettings
+import kg.nurtelecom.o.talkingavatar.domain.gateway.TtsEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File

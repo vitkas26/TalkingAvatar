@@ -1,6 +1,7 @@
-package kg.nurtelecom.o.talkingavatar.speech
+package kg.nurtelecom.o.talkingavatar.data.speech
 
 import android.content.Context
+import kg.nurtelecom.o.talkingavatar.domain.gateway.TtsEngine
 import kg.nurtelecom.o.talkingavatar.ui.utils.AudioPlayer
 
 class AndroidTtsEngine(context: Context) : TtsEngine {

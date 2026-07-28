@@ -1,4 +1,4 @@
-package kg.nurtelecom.o.talkingavatar.speech
+package kg.nurtelecom.o.talkingavatar.domain.gateway
 
 interface TtsEngine {
     suspend fun speak(

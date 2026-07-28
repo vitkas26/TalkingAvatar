@@ -1,16 +1,16 @@
-package kg.nurtelecom.o.talkingavatar.speech.googlecloud
+package kg.nurtelecom.o.talkingavatar.data.speech.whisper
 
 import android.content.Context
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
-import kg.nurtelecom.o.talkingavatar.speech.EngineSettings
-import kg.nurtelecom.o.talkingavatar.speech.SttEngine
-import kg.nurtelecom.o.talkingavatar.speech.vad.SilenceTracker
-import kg.nurtelecom.o.talkingavatar.speech.vad.VadConfig
-import kg.nurtelecom.o.talkingavatar.speech.vad.VadDecision
-import kg.nurtelecom.o.talkingavatar.speech.vad.pcm16BytesDbfs
+import kg.nurtelecom.o.talkingavatar.data.speech.EngineSettings
+import kg.nurtelecom.o.talkingavatar.domain.gateway.SttEngine
+import kg.nurtelecom.o.talkingavatar.data.speech.vad.SilenceTracker
+import kg.nurtelecom.o.talkingavatar.data.speech.vad.VadConfig
+import kg.nurtelecom.o.talkingavatar.data.speech.vad.VadDecision
+import kg.nurtelecom.o.talkingavatar.data.speech.vad.pcm16BytesDbfs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,35 +18,18 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.ByteArrayOutputStream
 import java.io.File
 
-private const val TAG = "GoogleCloudSttEngine"
+private const val TAG = "WhisperSttEngine"
 private const val SAMPLE_RATE = 16_000
 
-// Дефолтные alt-языки для Google Speech-to-text (alternativeLanguageCodes, лимит Google — 3
-// на запрос) по основному языку — используются только когда EngineSettings.googleCloudAltLanguages
-// пуст (т.е. пользователь не задал ручной оверрайд с экрана настроек). ky-KG/ru-RU идут друг у
-// друга первым приоритетом — самый частый code-switching в реальном использовании на пилоте;
-// остальные языки получают ru-RU и ky-KG первыми по той же причине (локальный код-свитчинг
-// подмешивается в любой язык на этом пилоте), третий слот — следующий вероятный кандидат.
-val defaultAltLanguagesByPrimary: Map<String, String> = mapOf(
-    "ky-KG" to "ru-RU,en-US,tr-TR",
-    "ru-RU" to "ky-KG,en-US,tr-TR",
-    "en-US" to "ru-RU,ky-KG,tr-TR",
-    "tr-TR" to "ru-RU,ky-KG,en-US",
-    "zh-CN" to "ru-RU,ky-KG,en-US",
-    "de-DE" to "ru-RU,ky-KG,en-US",
-)
-
-// Шлём WAV (заголовок + LINEAR16/16kHz/mono), как и WhisperSttEngine — V1-провайдер прокси
-// прекрасно работает с явным заголовком (проверено вручную curl'ом), а V2 (autoDecodingConfig)
-// без заголовка вообще не может определить контейнер и падает с 400 "unsupported encoding".
-// Раньше слали голый PCM без заголовка — работало только под V1, ломало V2.
-class GoogleCloudSttEngine(
+class WhisperSttEngine(
     private val context: Context,
-    private val apiService: GoogleCloudApiService,
+    private val apiService: WhisperApiService,
     private val engineSettings: EngineSettings,
 ) : SttEngine {
 
@@ -60,6 +43,8 @@ class GoogleCloudSttEngine(
         onResult: (String, String?) -> Unit,
         onError: (Throwable) -> Unit,
     ) {
+        val audioFile = File(context.cacheDir, "whisper_input.wav")
+
         val minBufferSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,
@@ -120,24 +105,21 @@ class GoogleCloudSttEngine(
             }
 
             try {
-                val audioFile = File(context.cacheDir, "googlecloud_input.wav")
                 writeWavFile(audioFile, pcm.toByteArray(), SAMPLE_RATE)
-                val body = audioFile.asRequestBody("audio/wav".toMediaType())
-                val alt = engineSettings.googleCloudAltLanguages.takeIf { it.isNotBlank() }
-                    ?: defaultAltLanguagesByPrimary[language]
-                val response = apiService.transcribe(
-                    audio = body,
-                    lang = language,
-                    alt = alt,
-                    apiVersion = engineSettings.googleCloudApiVersion,
+                val filePart = MultipartBody.Part.createFormData(
+                    "audio",
+                    audioFile.name,
+                    audioFile.asRequestBody("audio/wav".toMediaType()),
                 )
-                val text = response.transcript
+                // ISO-639-1 из BCP-47 кода ("ru-RU" -> "ru"). Пусто/непонятно — не шлём поле,
+                // сервер сделает автодетект.
+                val languageCode = language.substringBefore("-").lowercase()
+                val languagePart = languageCode.takeIf { it.isNotBlank() }
+                    ?.toRequestBody("text/plain".toMediaType())
+                val response = apiService.transcribe(filePart, languagePart)
+                val text = response.text
                 withContext(Dispatchers.Main) {
-                    if (text.isNullOrBlank()) {
-                        onError(Exception("Google Cloud STT: пустой результат"))
-                    } else {
-                        onResult(text, response.languageDetected)
-                    }
+                    if (text.isNullOrBlank()) onError(Exception("Whisper: пустой результат")) else onResult(text, null)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "transcribe failed", e)
@@ -163,7 +145,7 @@ class GoogleCloudSttEngine(
 }
 
 // AudioRecord отдаёт сырой PCM без контейнера — оборачиваем в canonical 44-байтный WAV-заголовок
-// (mono/16-bit/16kHz), как в WhisperSttEngine.writeWavFile.
+// (mono/16-bit/16kHz), т.к. серверу нужен именно .wav-файл, а не сырые сэмплы.
 private fun writeWavFile(file: File, pcmData: ByteArray, sampleRate: Int) {
     val channels = 1
     val bitsPerSample = 16

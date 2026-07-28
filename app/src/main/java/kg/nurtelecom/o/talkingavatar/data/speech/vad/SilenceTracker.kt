@@ -1,4 +1,4 @@
-package kg.nurtelecom.o.talkingavatar.speech.vad
+package kg.nurtelecom.o.talkingavatar.data.speech.vad
 
 // Общая VAD-логика для Whisper/AkylAI/GoogleCloud STT (см. speech/vad/AudioLevel.kt для источника
 // dBFS-сэмплов) — раньше каждый движок дублировал свой fixed-duration record loop, теперь решение

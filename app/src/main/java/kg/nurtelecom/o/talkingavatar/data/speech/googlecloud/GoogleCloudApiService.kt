@@ -1,4 +1,4 @@
-package kg.nurtelecom.o.talkingavatar.speech.googlecloud
+package kg.nurtelecom.o.talkingavatar.data.speech.googlecloud
 
 import okhttp3.RequestBody
 import okhttp3.ResponseBody

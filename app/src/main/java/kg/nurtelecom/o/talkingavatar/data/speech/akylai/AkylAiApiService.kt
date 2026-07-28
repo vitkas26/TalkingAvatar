@@ -1,4 +1,4 @@
-package kg.nurtelecom.o.talkingavatar.speech.akylai
+package kg.nurtelecom.o.talkingavatar.data.speech.akylai
 
 import okhttp3.MultipartBody
 import okhttp3.ResponseBody

@@ -1,6 +1,7 @@
-package kg.nurtelecom.o.talkingavatar.speech
+package kg.nurtelecom.o.talkingavatar.data.speech
 
 import android.util.Log
+import kg.nurtelecom.o.talkingavatar.domain.gateway.SttEngine
 
 private const val TAG = "EngineRouting"
 

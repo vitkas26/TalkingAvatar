@@ -1,4 +1,4 @@
-package kg.nurtelecom.o.talkingavatar.speech.piper
+package kg.nurtelecom.o.talkingavatar.data.speech.piper
 
 import okhttp3.ResponseBody
 import retrofit2.http.Body

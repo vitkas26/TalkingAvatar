@@ -1,7 +1,10 @@
 package kg.nurtelecom.o.talkingavatar.data.di
 
 import kg.nurtelecom.o.talkingavatar.data.api.ApiService
-import kg.nurtelecom.o.talkingavatar.ui.mainScreen.MainViewModel
+import kg.nurtelecom.o.talkingavatar.data.repository.QuestionRepositoryImpl
+import kg.nurtelecom.o.talkingavatar.domain.repository.QuestionRepository
+import kg.nurtelecom.o.talkingavatar.domain.usecase.AskQuestionUseCase
+import kg.nurtelecom.o.talkingavatar.ui.conversation.MainViewModel
 import okhttp3.OkHttpClient
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
@@ -13,7 +16,8 @@ import java.util.concurrent.TimeUnit
 val mainModule = module {
     singleOf(::MainViewModel)
     single { provideApiService() }
-
+    single<QuestionRepository> { QuestionRepositoryImpl(get()) }
+    singleOf(::AskQuestionUseCase)
 }
 
 private fun provideApiService(): ApiService {

@@ -17,3 +17,10 @@
 local.properties
 /gradle/wrapper/gradle-wrapper.properties
 /gradle/wrapper/gradle-wrapper.jar
+
+# Figma-дамп (большой, легко перекачать заново через docs/figma/_export.py)
+/docs
+# Видео-ассеты аватара (тяжёлые, распространяются отдельно от репо)
+/app/src/main/assets
+# Сертификат тестового VPS-стенда
+/app/src/main/res/raw/nurai_cert.pem

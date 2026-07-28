@@ -1,4 +1,4 @@
-package kg.nurtelecom.o.talkingavatar.statemachine
+package kg.nurtelecom.o.talkingavatar.ui.avatar
 
 enum class AvatarState {
     Welcome,

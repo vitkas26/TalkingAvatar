@@ -27,12 +27,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
-import kg.nurtelecom.o.talkingavatar.speech.EngineSettings
-import kg.nurtelecom.o.talkingavatar.speech.SttEngineChoice
-import kg.nurtelecom.o.talkingavatar.speech.TtsEngineChoice
-import kg.nurtelecom.o.talkingavatar.ui.mainScreen.Language
-import kg.nurtelecom.o.talkingavatar.ui.mainScreen.MainViewModel
-import kg.nurtelecom.o.talkingavatar.ui.rotateFullScreen
+import kg.nurtelecom.o.talkingavatar.data.speech.EngineSettings
+import kg.nurtelecom.o.talkingavatar.data.speech.SttEngineChoice
+import kg.nurtelecom.o.talkingavatar.data.speech.TtsEngineChoice
+import kg.nurtelecom.o.talkingavatar.domain.model.Language
+import kg.nurtelecom.o.talkingavatar.ui.conversation.MainViewModel
+import kg.nurtelecom.o.talkingavatar.ui.utils.rotateFullScreen
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 

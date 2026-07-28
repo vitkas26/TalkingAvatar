@@ -9,7 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import kg.nurtelecom.o.talkingavatar.ui.mainScreen.MainScreen
+import kg.nurtelecom.o.talkingavatar.ui.conversation.ConversationNavHost
 import kg.nurtelecom.o.talkingavatar.ui.settings.SettingsScreen
 import kg.nurtelecom.o.talkingavatar.ui.theme.TalkingAvatarTheme
 
@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
                 if (showSettings) {
                     SettingsScreen(onStart = { showSettings = false })
                 } else {
-                    MainScreen()
+                    ConversationNavHost()
                 }
             }
         }

@@ -1,11 +1,14 @@
-package kg.nurtelecom.o.talkingavatar.ui.mainScreen
+package kg.nurtelecom.o.talkingavatar.ui.conversation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kg.nurtelecom.o.talkingavatar.data.api.ApiService
-import kg.nurtelecom.o.talkingavatar.data.models.QuestionRequest
-import kg.nurtelecom.o.talkingavatar.speech.SttEngine
-import kg.nurtelecom.o.talkingavatar.speech.TtsEngine
+import kg.nurtelecom.o.talkingavatar.domain.model.Answer
+import kg.nurtelecom.o.talkingavatar.domain.model.Language
+import kg.nurtelecom.o.talkingavatar.domain.model.normalizeDetectedLanguage
+import kg.nurtelecom.o.talkingavatar.domain.usecase.AskQuestionUseCase
+import kg.nurtelecom.o.talkingavatar.domain.gateway.SttEngine
+import kg.nurtelecom.o.talkingavatar.domain.gateway.TtsEngine
+import kg.nurtelecom.o.talkingavatar.ui.conversation.sheet.SheetContent
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -17,30 +20,24 @@ import org.orbitmvi.orbit.container
 data class MainState(
     val isListening: Boolean = false,
     val question: String = "",
-    val answer: String = "",
+    val answer: Answer? = null,
     val isSpeaking: Boolean = false,
     val isPreparing: Boolean = false,
     val error: String? = null,
     val selectedLanguage: Language = Language.Russian,
     val showWelcome: Boolean = true,
-    val isLanguageSheetOpen: Boolean = false,
-)
+    // Стек контента единого боттомшита (пусто = закрыт). Верхний = текущий; back = pop.
+    val sheet: List<SheetContent> = emptyList(),
+) {
+    val sheetTop: SheetContent? get() = sheet.lastOrNull()
+}
 
 sealed class MainSideEffect {
     data class ShowError(val message: String) : MainSideEffect()
 }
 
-// STT-движки (сейчас только google-cloud-proxy) могут вернуть код в другом регистре, без
-// региона, или с гугловским квирком ("cmn" вместо "zh" для китайского — см. GoogleCloudTtsEngine
-// wavenetVoiceByLanguage) — нормализуем к Language.code проекта. Языки вне списка из 6
-// поддерживаемых — null, вызывающий не обновляет state.selectedLanguage этим значением.
-private fun normalizeDetectedLanguage(raw: String): Language? {
-    val primary = raw.substringBefore("-").lowercase().let { if (it == "cmn") "zh" else it }
-    return Language.entries.firstOrNull { it.code.substringBefore("-").lowercase() == primary }
-}
-
 class MainViewModel(
-    private val apiService: ApiService,
+    private val askQuestion: AskQuestionUseCase,
     private val sttEngine: SttEngine,
     private val ttsEngine: TtsEngine,
 ) : ViewModel(), ContainerHost<MainState, MainSideEffect> {
@@ -84,16 +81,29 @@ class MainViewModel(
         resetIdleTimer()
     }
 
-    fun showLanguageSheet() = intent {
-        reduce { state.copy(isLanguageSheetOpen = true) }
+    // --- Единый боттомшит: стек контента (см. SheetContent) ---
+    fun showLanguageSheet() = intent { reduce { state.copy(sheet = listOf(SheetContent.LanguagePicker)) } }
+    fun showIntroSheet() = intent { reduce { state.copy(sheet = listOf(SheetContent.Intro)) } }
+
+    // «Ответ в текстовом виде» на экране Speaking — открыть HTML-ответ в шите.
+    fun showTextAnswer() = intent {
+        val html = state.answer?.html ?: return@intent
+        reduce { state.copy(sheet = listOf(SheetContent.Answer(html))) }
     }
 
-    fun hideLanguageSheet() = intent {
-        reduce { state.copy(isLanguageSheetOpen = false) }
+    // Тап по ссылке внутри HTML-ответа — открыть webview поверх (push в стек).
+    fun openWebInSheet(url: String) = intent {
+        reduce { state.copy(sheet = state.sheet + SheetContent.Web(url)) }
     }
+
+    // Назад внутри шита (напр. Web -> Answer). Пустой стек = закрыт.
+    fun sheetBack() = intent { reduce { state.copy(sheet = state.sheet.dropLast(1)) } }
+    fun closeSheet() = intent { reduce { state.copy(sheet = emptyList()) } }
+
+    fun hideLanguageSheet() = closeSheet()
 
     fun selectLanguage(language: Language) = intent {
-        reduce { state.copy(selectedLanguage = language, showWelcome = false, isLanguageSheetOpen = false) }
+        reduce { state.copy(selectedLanguage = language, showWelcome = false, sheet = emptyList()) }
         speakGreeting()
     }
 
@@ -103,7 +113,7 @@ class MainViewModel(
     }
 
     fun startListening() = intent {
-        reduce { state.copy(isListening = true, showWelcome = false, error = null) }
+        reduce { state.copy(isListening = true, showWelcome = false, error = null, question = "") }
         sttEngine.startListening(
             language = state.selectedLanguage.code,
             onProcessingStarted = { onSttProcessingStarted() },
@@ -132,11 +142,10 @@ class MainViewModel(
         }
         reduce { state.copy(isListening = false, question = question) }
         try {
-            val response = apiService.askQuestion(QuestionRequest(question, state.selectedLanguage.code))
-            val spokenText = response.answer
-            reduce { state.copy(answer = spokenText, isPreparing = true) }
+            val answer = askQuestion(question, state.selectedLanguage.code)
+            reduce { state.copy(answer = answer, isPreparing = true) }
             ttsEngine.speak(
-                text = spokenText,
+                text = answer.spokenText,
                 language = state.selectedLanguage.code,
                 onStart = { onSpeakingStarted() },
                 onDone = { onSpeechFinished() },

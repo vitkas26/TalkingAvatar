@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -142,7 +143,7 @@ internal fun ErrorSnackbar(message: String, modifier: Modifier = Modifier, color
             color = Color.Black,
             fontSize = 15.sp,
             lineHeight = 20.sp,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).align(Alignment.CenterVertically),
         )
     }
 }
@@ -152,7 +153,7 @@ internal fun ErrorSnackbar(message: String, modifier: Modifier = Modifier, color
 private fun ErrorSnackbarPreview() {
     TalkingAvatarTheme {
         ErrorSnackbar(
-            message = "я не смогла определить язык.",
+            message = "К сожалению, я не смогла определить язык. Пожалуйста, выберите язык на экране, и мы продолжим разговор.",
         )
     }
 }

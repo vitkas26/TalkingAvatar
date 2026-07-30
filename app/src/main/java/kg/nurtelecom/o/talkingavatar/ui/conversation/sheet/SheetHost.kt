@@ -7,49 +7,45 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kg.nurtelecom.o.talkingavatar.R
 import kg.nurtelecom.o.talkingavatar.domain.model.Language
+import kg.nurtelecom.o.talkingavatar.ui.conversation.chrome.BottomLogo
 import kg.nurtelecom.o.talkingavatar.ui.theme.LocalAppColors
+import kg.nurtelecom.o.talkingavatar.ui.theme.TalkingAvatarTheme
 
 // Контент единого боттомшита. Один хост рендерит все состояния (см. SheetContent) через
 // AnimatedContent; back/close сверху; BackHandler для системной «назад» внутри шита.
+// Сам контент каждого состояния — в своём файле (IntroSheet.kt, LanguagePickerSheet.kt,
+// AnswerText.kt, SheetWebView.kt); здесь только шапка/кнопки/диспетчер.
 @Composable
 fun SheetHostContent(
     content: SheetContent,
@@ -64,31 +60,56 @@ fun SheetHostContent(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BackHandler(enabled = true) { onBack() }
+    // BackHandler требует OnBackPressedDispatcherOwner, которого нет в Compose Preview — падает.
+    if (!LocalInspectionMode.current) {
+        BackHandler(enabled = true) { onBack() }
+    }
 
-    Column(modifier = modifier
-        .fillMaxWidth()
-        .padding(bottom = 16.dp)) {
+    // Answer/Web (сам ответ и открытая по ссылке страница) — во весь экран, кнопки
+    // Завершить/Продолжить закреплены сверху над контентом, логотип снизу (см. скрин дизайна).
+    // Intro/LanguagePicker — по размеру контента, как и раньше, без кнопок/лого.
+    val isConversationContent = content is SheetContent.Answer || content is SheetContent.Web
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            // fillMaxHeight() (без доли) тянет шит вплотную к самому верху экрана — скруглённые
+            // "ушки" ModalBottomSheet упираются в статус-бар и визуально пропадают. 0.94f
+            // оставляет зазор сверху, чтобы скругление было видно.
+            .then(if (isConversationContent) Modifier.fillMaxHeight(0.94f) else Modifier)
+            .padding(bottom = 16.dp),
+    ) {
         // Шапка: назад (если есть куда) или закрыть. Явный размер IconButton (вместо
         // дефолтного) + минимальный top-паддинг — крестик должен сидеть точно в углу шита,
         // не проваливаться под drag-handle отступ (см. dragHandle = null у ModalBottomSheet).
+        // Крестик — везде, КРОМЕ Ответа (Answer/Web): там закрытие идёт через «Завершить
+        // разговор», а X снаружи — от Speaking-экрана под шитом (см. дизайн-референс).
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 4.dp, start = 8.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (canGoBack) {
-                TextButton(onClick = onBack) { Text("‹ Назад") }
+            Spacer(Modifier.weight(1f))
+            if (!isConversationContent) {
+                Image(
+                    painter = painterResource(R.drawable.ic_close),
+                    contentDescription = "Закрыть",
+                    modifier = Modifier
+                        .size(36.dp)
+                        .shadow(
+                            2.dp,
+                            RoundedCornerShape(50.dp),
+                            ambientColor = Color.White,
+                            spotColor = Color.Gray
+                        )
+                        .clickable { onClose() },
+                )
             }
-            Box(Modifier.weight(1f))
-            Image(
-                painter = painterResource(R.drawable.ic_close),
-                contentDescription = "Закрыть",
-                modifier = Modifier
-                    .size(64.dp)
-                    .clickable { onClose() },
-            )
+        }
+
+        if (isConversationContent) {
+            ConversationButtonsRow(onFinish = onFinish, onContinue = onContinue)
         }
 
         AnimatedContent(
@@ -104,201 +125,98 @@ fun SheetHostContent(
                     onSelectLanguage
                 )
 
-                is SheetContent.Answer -> AnswerContent(c.html, onLinkClick, onContinue, onFinish)
-                is SheetContent.Web -> UrlWebView(
-                    url = c.url,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 480.dp),
+                is SheetContent.Answer -> HtmlAnswerText(
+                    html = c.html,
+                    onLinkClick = onLinkClick,
+                    modifier = Modifier.fillMaxSize(),
                 )
+
+                is SheetContent.Web -> UrlWebView(url = c.url, modifier = Modifier.fillMaxSize())
             }
+        }
+
+        if (isConversationContent) {
+            BottomLogo(modifier = Modifier.align(Alignment.CenterHorizontally))
         }
     }
 }
 
-// Знакомство (Figma frame «Знакомство»): заголовок + описание + список 6 языков + «Понятно».
+// Завершить/Продолжить разговор — над контентом Ответа (текст или открытая по ссылке
+// страница), не под ним: страница может быть длинной, кнопки должны быть видны сразу.
 @Composable
-private fun IntroContent(languages: List<Language>, onOk: () -> Unit) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 8.dp),
-    ) {
-        Text(
-            "Знакомьтесь, это NURAi — ваш цифровой помощник!",
-            fontSize = 26.sp,
-            lineHeight = 32.sp,
-            fontWeight = FontWeight.Medium,
-        )
-        Spacer(Modifier.height(20.dp))
-        Text(
-            "Проконсультирует по тарифам, eSIM и услугам без очереди. Просто поговорите с ней!\n\n" +
-                    "Можете просто начать говорить, на нужном вам языке, она распознает под какой язык подстроится.",
-            fontSize = 16.sp,
-            lineHeight = 24.sp,
-        )
-        Spacer(Modifier.height(24.dp))
-        Text("Nurai понимает 6 языков:", fontSize = 16.sp, lineHeight = 24.sp)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            languages.joinToString("\n") { "• ${it.displayName}" },
-            fontSize = 16.sp,
-            lineHeight = 16.sp,
-            fontWeight = FontWeight.Normal,
-        )
-        Spacer(Modifier.height(120.dp))
-        PrimaryPillButton("Понятно", onClick = onOk)
-        Spacer(Modifier.height(8.dp))
-    }
-}
-
-// Выбор языка (Figma frame «Выбор языка»): заголовок + сетка языков-пилюль с radio + «Выбрать».
-// Выбор двухшаговый (как в дизайне): отметить язык -> «Выбрать» подтверждает.
-@Composable
-private fun LanguagePickerContent(
-    languages: List<Language>,
-    selected: Language,
-    onConfirm: (Language) -> Unit,
-) {
-    var picked by remember(selected) { mutableStateOf(selected) }
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    ) {
-        Text(
-            "Выберите язык:",
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 8.dp, bottom = 20.dp),
-        )
-        languages.chunked(2).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                row.forEach { lang ->
-                    LanguageCell(
-                        name = lang.displayName,
-                        selected = lang == picked,
-                        onClick = { picked = lang },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                if (row.size == 1) Box(Modifier.weight(1f))
-            }
-            Spacer(Modifier.height(12.dp))
-        }
-        Spacer(Modifier.height(120.dp))
-        PrimaryPillButton("Выбрать", onClick = { onConfirm(picked) })
-        Spacer(Modifier.height(8.dp))
-    }
-}
-
-// Ячейка языка — пилюля (cornerRadius=100 в Figma). Белый фон всегда; выбранная — розовый
-// контур пилюли + классический radio-button (кружок с розовой точкой внутри), невыбранная —
-// серый контур + пустой кружок. Раньше здесь была заливка + галочка — не похоже на радиокнопку
-// из дизайна, поменяли на настоящий radio-look по референсу.
-@Composable
-private fun LanguageCell(
-    name: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun ConversationButtonsRow(onFinish: () -> Unit, onContinue: () -> Unit) {
     val colors = LocalAppColors.current
-    val background = if (selected) colors.accent.copy(alpha = 0.1f) else colors.surface
     Row(
-        modifier = modifier
-            .clip(CircleShape)
-            .background(background)
-            .border(0.75.dp, if (selected) colors.accent else colors.border, CircleShape)
-            .clickable(onClick = onClick)
-            .padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            name,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Normal,
-            color = Color.Black,
-            modifier = Modifier.weight(1f),
-        )
-        Box(
-            modifier = Modifier
-                .size(22.dp)
-                .clip(CircleShape)
-                .background(colors.surface)
-                .border(1.dp, if (selected) colors.accent else colors.borderMuted, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (selected) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(colors.accent),
-                )
-            }
-        }
-    }
-}
-
-// Первичная кнопка-пилюля в стиле бренда (в Figma — тёмная/розовая liquid-glass; здесь тёмная).
-@Composable
-private fun PrimaryPillButton(text: String, onClick: () -> Unit) {
-    val colors = LocalAppColors.current
-    Button(
-        onClick = onClick,
-        shape = CircleShape,
-        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-        contentPadding = PaddingValues(vertical = 10.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 44.dp)
-            .clip(CircleShape)
-            // Brush.radialGradient() без явного radius берёт minDimension/2 (высоту кнопки) —
-            // получается маленький кружок посередине. Радиус = половина ширины растягивает
-            // градиент на всю пилюлю (drawWithCache — размер известен только на этапе отрисовки).
-            .drawWithCache {
-                val brush = Brush.radialGradient(
-                    colors = colors.primaryButtonGradient,
-                    center = Offset(size.width / 2f, size.height / 2f),
-                    radius = size.width / 2f,
-                )
-                onDrawBehind { drawRect(brush) }
-            },
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(text, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Color.White)
+        Button(
+            onClick = onFinish,
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+            // box-shadow: 0px 17px 100px 0px #6B76E029 (Figma) — Modifier.dropShadow, не
+            // classic .shadow(elevation) — тот только имитирует Material-тень, не поддерживает
+            // произвольные offset/blur/spread из дизайна.
+            modifier = Modifier
+                .weight(1f)
+                .dropShadow(CircleShape) {
+                    color = Color(0x296B76E0)
+                    radius = 100f
+                    spread = 0f
+                    offset = Offset(0f, 17.dp.toPx())
+                },
+        ) {
+            Text("Завершить разговор", fontSize = 10.sp, fontWeight = FontWeight.Medium)
+        }
+        Button(
+            onClick = onContinue,
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = Color.White),
+            // Figma: две наложенные тени —
+            // 0px 5.81px 46.47px 0px #0000001F и 0px 0px 11.62px 0px #0000001A.
+            // dropShadow можно накладывать цепочкой — один слой на вызов.
+            modifier = Modifier
+                .weight(1f)
+                .dropShadow(CircleShape) {
+                    color = Color(0x1F000000)
+                    radius = 46.47f
+                    spread = 0f
+                    offset = Offset(0f, 5.81.dp.toPx())
+                }
+                .dropShadow(CircleShape) {
+                    color = Color(0x1A000000)
+                    radius = 11.62f
+                    spread = 0f
+                    offset = Offset.Zero
+                },
+        ) {
+            Text("Продолжить разговор", fontSize = 10.sp, fontWeight = FontWeight.Medium)
+        }
     }
 }
 
+// WebView сам по себе не рендерится в Compose Preview (нужен реальный Android-рантайм) —
+// область под UrlWebView будет пустой, но раскладка вокруг (кнопки/шапка/лого) видна.
+@Preview(name = "Sheet — Answer", showBackground = true, heightDp = 900)
 @Composable
-private fun AnswerContent(
-    html: String,
-    onLinkClick: (String) -> Unit,
-    onContinue: () -> Unit,
-    onFinish: () -> Unit,
-) {
-    Column(Modifier.fillMaxWidth()) {
-        HtmlAnswerWebView(
-            html = html,
-            onLinkClick = onLinkClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 240.dp, max = 480.dp),
+private fun SheetAnswerPreview() {
+    TalkingAvatarTheme {
+        SheetHostContent(
+            content = SheetContent.Answer(
+                "<p>Для максимального интернета — линейка \"O! Комбо\".</p>" +
+                        "<p><a href=\"https://o.kg\">Подробнее</a></p>",
+            ),
+            canGoBack = true,
+            languages = Language.entries,
+            selectedLanguage = Language.Russian,
+            onSelectLanguage = {},
+            onLinkClick = {},
+            onContinue = {},
+            onFinish = {},
+            onBack = {},
+            onClose = {},
         )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            OutlinedButton(onClick = onFinish, modifier = Modifier.weight(1f)) {
-                Text("Завершить разговор")
-            }
-            Button(onClick = onContinue, modifier = Modifier.weight(1f)) {
-                Text("Продолжить разговор")
-            }
-        }
     }
 }

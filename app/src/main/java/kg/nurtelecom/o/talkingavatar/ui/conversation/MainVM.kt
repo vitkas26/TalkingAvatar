@@ -12,7 +12,7 @@ import kg.nurtelecom.o.talkingavatar.ui.conversation.sheet.SheetContent
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Duration.Companion.minutes
 import org.orbitmvi.orbit.Container
 import org.orbitmvi.orbit.ContainerHost
 import org.orbitmvi.orbit.container
@@ -42,19 +42,28 @@ class MainViewModel(
     private val ttsEngine: TtsEngine,
 ) : ViewModel(), ContainerHost<MainState, MainSideEffect> {
 
-    override val container: Container<MainState, MainSideEffect> = viewModelScope.container(MainState())
+    override val container: Container<MainState, MainSideEffect> = viewModelScope.container(
+        MainState(),
+    )
 
     private var idleTimeoutJob: Job? = null
 
-    // Welcome — не разовый экран, а idle-режим: если 10 минут никто не взаимодействует
-    // (не жмёт "Задать вопрос", не выбирает язык), аватар сам возвращается в Welcome.
-    // Таймер перезапускается на каждое реальное действие пользователя (см. startListening/selectLanguage).
+    // После того как аватар домолвил ответ — не сразу назад в Welcome, а 5 минут ждём,
+    // вдруг пользователь продолжит разговор (см. onSpeechFinished). Если за это время нет
+    // ни нового вопроса, ни явного действия — сама возвращается в Welcome.
     private fun resetIdleTimer() {
         idleTimeoutJob?.cancel()
         idleTimeoutJob = viewModelScope.launch {
-            delay(10.seconds) // TODO тест: вернуть 10.minutes перед пилотом
+            delay(5.minutes)
             intent { reduce { state.copy(showWelcome = true) } }
         }
+    }
+
+    // Явное завершение пользователем (стоп/отмена/ошибка) — сразу в Welcome, без ожидания
+    // idle-таймера (тот только для "домолвил и ждём продолжения").
+    private fun returnToWelcomeNow() {
+        idleTimeoutJob?.cancel()
+        intent { reduce { state.copy(showWelcome = true) } }
     }
 
     // Выставляется из SettingsScreen при переходе на аватар — только язык, без озвучки
@@ -74,7 +83,7 @@ class MainViewModel(
     }
 
     // Никакого авто-переслушивания — дальше слушаем только по явному тапу "Задать вопрос".
-    // resetIdleTimer() здесь, а не в startListening/selectLanguage — 10 минут это тишина
+    // resetIdleTimer() здесь, а не в startListening/selectLanguage — 5 минут это тишина
     // ПОСЛЕ того как аватар домолвил, а не общая длительность цикла Listening->Processing->Speaking.
     private fun onSpeechFinished() = intent {
         reduce { state.copy(isSpeaking = false, isPreparing = false) }
@@ -107,6 +116,8 @@ class MainViewModel(
         speakGreeting()
     }
 
+    // Mic-тап во время Speaking (прервать ответ и сразу задать новый вопрос) — идём прямо в
+    // Listening, поэтому здесь именно stopSpeaking() (без returnToWelcomeNow), не stopConversation().
     fun stopAndRestart() {
         stopSpeaking()
         startListening()
@@ -166,21 +177,29 @@ class MainViewModel(
         reduce { state.copy(isSpeaking = false, isPreparing = false) }
     }
 
+    // Явное завершение (крестик на Speaking, «Завершить разговор» в шите) — в отличие от
+    // stopAndRestart(), тут не слушаем заново, а сразу уходим в Welcome.
+    fun stopConversation() = intent {
+        ttsEngine.stop()
+        reduce { state.copy(isSpeaking = false, isPreparing = false) }
+        returnToWelcomeNow()
+    }
+
     fun cancelListening() = intent {
         sttEngine.stopListening()
         reduce { state.copy(isListening = false) }
-        resetIdleTimer()
+        returnToWelcomeNow()
     }
 
     private fun onSttError(error: Throwable) = intent {
         reduce { state.copy(isListening = false, isPreparing = false, error = error.message) }
-        resetIdleTimer()
+        returnToWelcomeNow()
         postSideEffect(MainSideEffect.ShowError(error.message ?: "Ошибка распознавания речи"))
     }
 
     private fun onTtsError(error: Throwable) = intent {
         reduce { state.copy(isSpeaking = false, isPreparing = false, error = error.message) }
-        resetIdleTimer()
+        returnToWelcomeNow()
         postSideEffect(MainSideEffect.ShowError("Ошибка TTS: ${error.message}"))
     }
 }

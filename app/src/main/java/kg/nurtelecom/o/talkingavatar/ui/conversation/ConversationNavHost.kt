@@ -37,6 +37,7 @@ import kg.nurtelecom.o.talkingavatar.ui.conversation.screen.ListeningScreen
 import kg.nurtelecom.o.talkingavatar.ui.conversation.screen.SpeakingScreen
 import kg.nurtelecom.o.talkingavatar.ui.conversation.screen.WelcomeScreen
 import kg.nurtelecom.o.talkingavatar.ui.conversation.sheet.SheetHostContent
+import kg.nurtelecom.o.talkingavatar.ui.theme.LocalAppColors
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -77,7 +78,7 @@ fun ConversationNavHost() {
     // рекомпозицию, а то что мы сами туда навигировали последним разом).
     var activePhase by remember { mutableStateOf<Any>(Welcome) }
     var reverseFromListening by remember { mutableStateOf(false) }
-    LaunchedEffect(state.isListening, state.isPreparing, state.isSpeaking) {
+    LaunchedEffect(state.isListening, state.isPreparing, state.isSpeaking, state.showWelcome) {
         when {
             (state.isListening || state.isPreparing) && activePhase != Listening -> {
                 activePhase = Listening
@@ -87,7 +88,12 @@ fun ConversationNavHost() {
                 activePhase = Speaking
                 navController.navigate(Speaking) { popUpTo<Welcome>() }
             }
-            !state.isListening && !state.isPreparing && !state.isSpeaking && activePhase != Welcome -> {
+            // showWelcome — явный сигнал от VM (стоп/отмена/ошибка сразу, естественное
+            // завершение речи — через 5-минутный idle-таймер, см. MainVM.resetIdleTimer).
+            // Не просто "все три флага false", иначе после Speaking сразу скакало бы в Welcome
+            // без ожидания.
+            state.showWelcome && !state.isListening && !state.isPreparing && !state.isSpeaking &&
+                activePhase != Welcome -> {
                 reverseFromListening = activePhase == Listening
                 activePhase = Welcome
                 navController.navigate(Welcome) { popUpTo<Welcome> { inclusive = true } }
@@ -126,7 +132,7 @@ fun ConversationNavHost() {
                     state = state,
                     avatarRenderer = avatarRenderer,
                     onShowTextAnswer = viewModel::showTextAnswer,
-                    onStop = viewModel::stopSpeaking,
+                    onStop = viewModel::stopConversation,
                 )
             }
         }
@@ -139,6 +145,9 @@ fun ConversationNavHost() {
                 onDismissRequest = viewModel::closeSheet,
                 sheetState = sheetState,
                 dragHandle = null, // в Figma нет ручки-полоски — она давала лишний отступ сверху
+                // Явно = тому же фону, что у HtmlAnswerWebView, иначе шов между дефолтным
+                // M3 surface-тоном шита и белым фоном html-контента.
+                containerColor = LocalAppColors.current.surface,
             ) {
                 SheetHostContent(
                     content = sheetTop,
@@ -151,7 +160,7 @@ fun ConversationNavHost() {
                         viewModel.closeSheet()
                         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     },
-                    onFinish = { viewModel.closeSheet(); viewModel.stopSpeaking() },
+                    onFinish = { viewModel.closeSheet(); viewModel.stopConversation() },
                     onBack = { viewModel.sheetBack() },
                     onClose = { viewModel.closeSheet() },
                 )

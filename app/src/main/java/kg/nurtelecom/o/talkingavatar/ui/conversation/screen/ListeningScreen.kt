@@ -161,7 +161,8 @@ fun ListeningScreen(question: String, avatarRenderer: AvatarRenderer, onCancel: 
         Image(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .size(64.dp)
+                .padding(12.dp)
+                .size(36.dp)
                 .clickable(onClick = onCancel),
             painter = painterResource(R.drawable.ic_close), contentDescription = "Закрыть"
         )

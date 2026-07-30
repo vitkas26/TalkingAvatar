@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,25 +54,29 @@ fun SpeakingScreen(
     onStop: () -> Unit,
 ) {
     val colors = LocalAppColors.current
+    Box(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)){
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(colors.stageBackground)
+        ) {
+            val density = LocalDensity.current
+            val geometry = rememberStageGeometry(constraints.maxWidth.toFloat(), density)
 
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(colors.stageBackground)
-            .windowInsetsPadding(WindowInsets.safeDrawing),
-    ) {
-        val density = LocalDensity.current
-        val geometry = rememberStageGeometry(constraints.maxWidth.toFloat(), density)
+            // Экран не покидаем сразу после TTS (см. MainVM idle-таймер — 5 мин ждём продолжения),
+            // но видео должно перестать быть "говорящим": озвучка идёт — Speaking, договорил — Idle.
+            val avatarState = if (state.isSpeaking) AvatarState.Speaking else AvatarState.Idle
+            ApertureVideoBox(geometry, progress = 0f, avatarState, avatarRenderer)
 
-        ApertureVideoBox(geometry, progress = 0f, AvatarState.Speaking, avatarRenderer)
+            StageGradientBox(geometry) {}
 
-        StageGradientBox(geometry) {}
 
+            BottomLogo(modifier = Modifier.align(Alignment.BottomCenter))
+        }
         Row(
             modifier = Modifier
-                .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = 8.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
@@ -79,8 +85,6 @@ fun SpeakingScreen(
             Spacer(modifier = Modifier.weight(1f))
             CloseCircleButton(onClick = onStop)
         }
-
-        BottomLogo(modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -92,11 +96,11 @@ private fun TextAnswerPillButton(onClick: () -> Unit, enabled: Boolean) {
             .clip(CircleShape)
             .background(Color.White)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
-        Text("Ответ в текстовом виде", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Normal)
+        Text("Ответ в текстовом виде", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Normal)
         Spacer(Modifier.padding(horizontal = 2.dp))
         Icon(painter = painterResource(R.drawable.ic_chevron_right), null, modifier = Modifier.size(8.dp))
     }
@@ -107,9 +111,8 @@ private fun CloseCircleButton(onClick: () -> Unit) {
     Image(
         painter = painterResource(R.drawable.ic_close), contentDescription = "Закрыть",
         modifier = Modifier
-            .size(64.dp)
+            .size(36.dp)
             .shadow(2.dp, CircleShape, ambientColor = Color.Gray, spotColor = Color.White)
-            .clip(CircleShape)
             .clickable { onClick() }
     )
 }

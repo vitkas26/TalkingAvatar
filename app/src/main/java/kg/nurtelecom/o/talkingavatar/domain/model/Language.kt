@@ -1,35 +1,11 @@
 package kg.nurtelecom.o.talkingavatar.domain.model
 
 // Чистая доменная модель (никаких Android/Compose-типов) — поддерживаемые языки NURAi.
-enum class Language(val code: String, val displayName: String, val greetingText: String) {
-    Russian(
-        code = "ru-RU",
-        displayName = "Русский",
-        greetingText = "Добро пожаловать! Выберите язык для начала беседы.",
-    ),
-    Kyrgyz(
-        code = "ky-KG",
-        displayName = "Кыргызча",
-        greetingText = "Кош келиңиз! Сүйлөшүүнү баштоо үчүн тилди тандаңыз.",
-    ),
-    English(
-        code = "en-US",
-        displayName = "English",
-        greetingText = "Welcome! Choose a language to start the conversation.",
-    ),
-    Turkish(
-        code = "tr-TR",
-        displayName = "Türkçe",
-        greetingText = "Hoş geldiniz! Sohbete başlamak için bir dil seçin.",
-    ),
-    Chinese(
-        code = "zh-CN",
-        displayName = "中文",
-        greetingText = "欢迎！请选择语言开始对话。",
-    ),
-    German(
-        code = "de-DE",
-        displayName = "Deutsch",
-        greetingText = "Willkommen! Wählen Sie eine Sprache, um das Gespräch zu beginnen.",
-    ),
+enum class Language(val code: String, val displayName: String) {
+    Russian(code = "ru-RU", displayName = "Русский"),
+    Kyrgyz(code = "ky-KG", displayName = "Кыргызча"),
+    English(code = "en-US", displayName = "English"),
+    Turkish(code = "tr-TR", displayName = "Türkçe"),
+    Chinese(code = "zh-CN", displayName = "中文"),
+    German(code = "de-DE", displayName = "Deutsch"),
 }

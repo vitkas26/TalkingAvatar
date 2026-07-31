@@ -73,20 +73,9 @@ class MainViewModel(
         intent { reduce { state.copy(showWelcome = true) } }
     }
 
-    // Выставляется из SettingsScreen при переходе на аватар — только язык, без озвучки
-    // и без выхода из Welcome. Приветствие звучит только через selectLanguage (боттомшит).
+    // Выставляется из SettingsScreen при переходе на аватар — только язык.
     fun setInitialLanguage(language: Language) = intent {
         reduce { state.copy(selectedLanguage = language) }
-    }
-
-    private fun speakGreeting() = intent {
-        ttsEngine.speak(
-            text = state.selectedLanguage.greetingText,
-            language = state.selectedLanguage.code,
-            onStart = { onSpeakingStarted() },
-            onDone = { onSpeechFinished() },
-            onError = { error -> onTtsError(error) },
-        )
     }
 
     // Никакого авто-переслушивания — дальше слушаем только по явному тапу "Задать вопрос".
@@ -118,9 +107,10 @@ class MainViewModel(
 
     fun hideLanguageSheet() = closeSheet()
 
+    // Только сет языка, ничего больше — ни озвучки приветствия, ни перехода на Speaking:
+    // остаёмся на Welcome (см. "не делать запрос на приветствие" — TTS-запрос убран).
     fun selectLanguage(language: Language) = intent {
-        reduce { state.copy(selectedLanguage = language, showWelcome = false, sheet = emptyList()) }
-        speakGreeting()
+        reduce { state.copy(selectedLanguage = language, sheet = emptyList()) }
     }
 
     // Mic-тап во время Speaking (прервать ответ и сразу задать новый вопрос) — идём прямо в

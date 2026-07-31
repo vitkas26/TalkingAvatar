@@ -11,6 +11,7 @@ import kg.nurtelecom.o.talkingavatar.data.speech.vad.SilenceTracker
 import kg.nurtelecom.o.talkingavatar.data.speech.vad.VadConfig
 import kg.nurtelecom.o.talkingavatar.data.speech.vad.VadDecision
 import kg.nurtelecom.o.talkingavatar.data.speech.vad.pcm16BytesDbfs
+import kg.nurtelecom.o.talkingavatar.domain.model.Language
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -57,7 +58,7 @@ class GoogleCloudSttEngine(
     override fun startListening(
         language: String,
         onProcessingStarted: () -> Unit,
-        onResult: (String, String?) -> Unit,
+        onResult: (String, Language?) -> Unit,
         onError: (Throwable) -> Unit,
     ) {
         val minBufferSize = AudioRecord.getMinBufferSize(
@@ -136,7 +137,7 @@ class GoogleCloudSttEngine(
                     if (text.isNullOrBlank()) {
                         onError(Exception("Google Cloud STT: пустой результат"))
                     } else {
-                        onResult(text, response.languageDetected)
+                        onResult(text, response.languageDetected?.let { normalizeDetectedLanguage(it) })
                     }
                 }
             } catch (e: Exception) {

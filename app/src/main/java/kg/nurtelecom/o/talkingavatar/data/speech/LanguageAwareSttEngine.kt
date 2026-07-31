@@ -2,6 +2,7 @@ package kg.nurtelecom.o.talkingavatar.data.speech
 
 import android.util.Log
 import kg.nurtelecom.o.talkingavatar.domain.gateway.SttEngine
+import kg.nurtelecom.o.talkingavatar.domain.model.Language
 
 private const val TAG = "EngineRouting"
 
@@ -17,7 +18,7 @@ class LanguageAwareSttEngine(
     override fun startListening(
         language: String,
         onProcessingStarted: () -> Unit,
-        onResult: (String, String?) -> Unit,
+        onResult: (String, Language?) -> Unit,
         onError: (Throwable) -> Unit,
     ) {
         val engine = if (language.startsWith("ky")) akylAiEngine else whisperEngine

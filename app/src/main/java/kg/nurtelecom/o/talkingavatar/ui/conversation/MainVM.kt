@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kg.nurtelecom.o.talkingavatar.domain.model.Answer
 import kg.nurtelecom.o.talkingavatar.domain.model.Language
-import kg.nurtelecom.o.talkingavatar.domain.model.normalizeDetectedLanguage
 import kg.nurtelecom.o.talkingavatar.domain.usecase.AskQuestionUseCase
 import kg.nurtelecom.o.talkingavatar.domain.gateway.SttEngine
 import kg.nurtelecom.o.talkingavatar.domain.gateway.TtsEngine
@@ -148,14 +147,13 @@ class MainViewModel(
         reduce { state.copy(isListening = false, isPreparing = true) }
     }
 
-    fun onSpeechResult(question: String, detectedLanguageCode: String? = null) = intent {
+    fun onSpeechResult(question: String, detectedLanguage: Language? = null) = intent {
         // Автообновление языка сессии по STT-детекту (сейчас только google-cloud-proxy шлёт
-        // languageDetected — Android/Whisper/AkylAI всегда null). Ручной выбор (selectLanguage/
-        // setInitialLanguage) остаётся единственным другим писателем selectedLanguage и всегда
-        // выигрывает на практике: этот блок срабатывает только внутри реального STT-запроса.
-        val detectedLanguage = detectedLanguageCode
-            ?.takeIf { it.isNotBlank() }
-            ?.let { normalizeDetectedLanguage(it) }
+        // непустой detectedLanguage — Android/Whisper/AkylAI всегда null; разбор сырого кода
+        // провайдера уже сделан в data-слое, см. GoogleCloudLanguageMapper). Ручной выбор
+        // (selectLanguage/setInitialLanguage) остаётся единственным другим писателем
+        // selectedLanguage и всегда выигрывает на практике: этот блок срабатывает только
+        // внутри реального STT-запроса.
         if (detectedLanguage != null && detectedLanguage != state.selectedLanguage) {
             reduce { state.copy(selectedLanguage = detectedLanguage) }
         }

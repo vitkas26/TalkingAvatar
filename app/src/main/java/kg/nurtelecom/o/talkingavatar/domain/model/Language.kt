@@ -33,12 +33,3 @@ enum class Language(val code: String, val displayName: String, val greetingText:
         greetingText = "Willkommen! Wählen Sie eine Sprache, um das Gespräch zu beginnen.",
     ),
 }
-
-// STT-движки (сейчас только google-cloud-proxy) могут вернуть код в другом регистре, без
-// региона, или с гугловским квирком ("cmn" вместо "zh" для китайского — см. GoogleCloudTtsEngine
-// wavenetVoiceByLanguage) — нормализуем к Language.code проекта. Языки вне списка из 6
-// поддерживаемых — null, вызывающий не обновляет selectedLanguage этим значением.
-fun normalizeDetectedLanguage(raw: String): Language? {
-    val primary = raw.substringBefore("-").lowercase().let { if (it == "cmn") "zh" else it }
-    return Language.entries.firstOrNull { it.code.substringBefore("-").lowercase() == primary }
-}

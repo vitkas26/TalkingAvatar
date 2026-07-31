@@ -10,6 +10,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
 import kg.nurtelecom.o.talkingavatar.domain.gateway.SttEngine
+import kg.nurtelecom.o.talkingavatar.domain.model.Language
 
 private const val TAG = "AndroidSttEngine"
 
@@ -17,7 +18,7 @@ class AndroidSttEngine(private val context: Context) : SttEngine {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
-    private var onResultCallback: ((String, String?) -> Unit)? = null
+    private var onResultCallback: ((String, Language?) -> Unit)? = null
     private var onErrorCallback: ((Throwable) -> Unit)? = null
     private var onProcessingStartedCallback: (() -> Unit)? = null
 
@@ -57,7 +58,7 @@ class AndroidSttEngine(private val context: Context) : SttEngine {
     override fun startListening(
         language: String,
         onProcessingStarted: () -> Unit,
-        onResult: (String, String?) -> Unit,
+        onResult: (String, Language?) -> Unit,
         onError: (Throwable) -> Unit,
     ) {
         mainHandler.post { startListeningOnMainThread(language, onProcessingStarted, onResult, onError) }
@@ -66,7 +67,7 @@ class AndroidSttEngine(private val context: Context) : SttEngine {
     private fun startListeningOnMainThread(
         language: String,
         onProcessingStarted: () -> Unit,
-        onResult: (String, String?) -> Unit,
+        onResult: (String, Language?) -> Unit,
         onError: (Throwable) -> Unit,
     ) {
         onResultCallback = onResult

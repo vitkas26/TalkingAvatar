@@ -59,6 +59,14 @@ class MainViewModel(
         }
     }
 
+    // Дёргается из MainActivity.onUserInteraction() на КАЖДОЕ касание экрана (не только по
+    // явным intent'ам VM) — пока идёт 5-минутное ожидание после ответа, любое касание
+    // отодвигает его, а не просто тикает фиксированный отсчёт с момента onSpeechFinished.
+    // Вне этого окна (idleTimeoutJob == null) — no-op, никакого общего idle-watchdog нет.
+    fun markUserActive() {
+        if (idleTimeoutJob?.isActive == true) resetIdleTimer()
+    }
+
     // Явное завершение пользователем (стоп/отмена/ошибка) — сразу в Welcome, без ожидания
     // idle-таймера (тот только для "домолвил и ждём продолжения").
     private fun returnToWelcomeNow() {

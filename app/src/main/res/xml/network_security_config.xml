@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-конфиг для пилота: AkylAI-адрес теперь настраивается на лету с экрана настроек
+  (EngineSettings.akylAiBaseUrl) — IP ноутбука меняется от сети к сети, перечислять каждый
+  заранее не вариант. Поэтому cleartext (http, без TLS) разрешён глобально base-config'ом,
+  а не точечно по доменам, как было для фиксированного 10.0.2.2.
+  Это ослабляет защиту для ВСЕГО трафика приложения, не только AkylAI — приемлемо для
+  debug-инструмента пилота, но не для прод-сборки. Если пойдёт в прод — вернуть точечный
+  domain-config под конкретный известный адрес сервиса.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+    <domain-config>
+        <domain includeSubdomains="false">138.16.155.105</domain>
+        <trust-anchors>
+            <certificates src="@raw/nurai_cert"/>
+        </trust-anchors>
+    </domain-config>
+</network-security-config>
